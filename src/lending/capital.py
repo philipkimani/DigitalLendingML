@@ -3,6 +3,7 @@
 Capital is the only link between customers. At a fixed lam each chunk is solved and simulated on its own
 and the risk-weighted capital summed, so memory is bounded by the chunk size, not the book size.
 """
+
 import numpy as np
 
 from .book import Book
@@ -23,14 +24,15 @@ def capital(book: Book, model: Model, lam: float, S: int = 100, seed: int = 11, 
     """Mean (over S paths) risk-weighted capital used by the lam-optimal policy across the whole book."""
     parts = list(book.chunks(chunk))
     total = np.zeros(S)
-    for part, sd in zip(parts, chunk_seeds(seed, len(parts))):
+    for part, sd in zip(parts, chunk_seeds(seed, len(parts)), strict=True):
         pol, _ = solve(part, model, lam)
         total += simulate(part, model, pol, S, sd)["capital"]
     return float(total.mean())
 
 
-def find_lambda(book: Book, model: Model, S: int = 100, seed: int = 11, chunk: int | None = None,
-                hi: float = 5.0, iters: int = 14) -> float:
+def find_lambda(
+    book: Book, model: Model, S: int = 100, seed: int = 11, chunk: int | None = None, hi: float = 5.0, iters: int = 14
+) -> float:
     """Smallest capital price whose policy keeps mean capital within budget, measured on the same paths
     used for reporting. The upper bound only moves to feasible values, so the result is feasible by
     construction; hi - (5 / 2**iters) is infeasible.

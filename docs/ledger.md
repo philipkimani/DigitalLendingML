@@ -147,3 +147,30 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Concept: one source of truth for dependencies.** `pyproject.toml` declares, `uv.lock` pins, `requirements.txt` is an export. Editing the export by hand creates drift between local and cloud environments.
 - **Concept: raw data is immutable.** Code reads `raw/` and writes `interim/`/`processed/`; a run can always be recreated from raw plus code.
 - **Next:** code quality tooling (ruff, type checker, pre-commit with a secret scanner).
+
+### 20. Push rejected: wrong GitHub account ✅
+- **Symptom:** `git push` → `403 Permission ... denied to <other account>`. The commit was fine locally.
+- **Diagnosis:** git gets its GitHub password from the GitHub CLI (`gh auth git-credential`), which hands out the token of whichever account is *active*. Several accounts are signed in on this machine and the active one had been switched elsewhere. Putting the username in the remote URL did not help: this `gh` version ignores the username and answers only for the active account.
+- **Fix (repo-local, durable):** a custom git credential helper in `.git/config` that asks `gh` for this repo owner's token by name, whatever account is active:
+  `git config --local credential.https://github.com.helper '!f() { test "$1" = get && echo username=<owner> && echo "password=$(gh auth token -u <owner>)"; }; f'` (preceded by an empty helper entry to reset inherited ones).
+- **Concept:** git credential helpers are a chain configured per scope (system → global → repo). An empty entry clears the inherited chain; the token stays in the OS keyring, never in the repo.
+
+### 21. Code quality tooling ✅
+- **What:** dev dependencies `ruff` (lint + format), `mypy` + `pandas-stubs` (types), `pre-commit` (runs checks on every commit); config in `pyproject.toml` and `.pre-commit-config.yaml`; git hook installed with `uv run pre-commit install`.
+- **Hooks on every commit:** large-file guard (500 KB), private-key detector, YAML/TOML validity, end-of-file and whitespace fixers, **gitleaks** secret scanner, ruff, ruff-format, mypy.
+- **What the first run caught (before any fix):**
+
+| Finding | Meaning | Action |
+|---|---|---|
+| B905 `zip()` without `strict=` in `capital.py` | If chunk and seed counts ever differed, `zip` would silently drop customers from the capital total | `strict=True`: mismatch now raises |
+| B008 call in default argument (`Params()`) | Shared default object; dangerous only if mutable | Not a bug (`Params` is frozen); recorded via `extend-immutable-calls` instead of silencing the rule |
+| 2 × mypy in the parity test | `Optional[str]` passed to `Path`; mixed-type dict passed as `**kwargs` | Explicit check narrows the type; dict annotated |
+| Import order, `__all__` order, long line, formatting of 11 files | Style only | Auto-fixed; unit tests confirm behaviour unchanged |
+
+- **Concept:** a linter's value is the occasional real bug (B905 here), not the style. Each suppression is recorded with its reason, never blanket-disabled.
+
+### 22. Hook setup: slow first run, and a secret-scan false positive ✅
+- **Slow install (~20 min):** PyPI downloads ran at ~35 KB/s while general internet ran at 5.6 MB/s (measured with `curl`). A second install attempt then queued behind the first one's cache lock. **Lesson:** when an install stalls, check running processes and the cache before starting another attempt.
+- **Duplicate tool environments:** the upstream ruff hook installs its own copy of ruff, so pre-commit was downloading ruff a second time. **Fix:** ruff and mypy hooks run from the project environment (`repo: local`, `uv run ...`). `uv.lock` is the single source of truth for tool versions; the full hook run now takes ~9 s.
+- **Secret scan:** full-history scan (`gitleaks git .`) flagged `infra/main.bicep` line 202, `kvSecretsUserRole = '4633458b-…'`. Reviewed: this is the **built-in Azure role definition id** for "Key Vault Secrets User", public and identical in every tenant; it grants nothing by itself. Recorded as a documented exception: inline `gitleaks:allow` comment (current and future commits) plus the exact finding fingerprint in `.gitleaksignore` (history). Re-scan: no leaks in history or tracked files (the only other hits were inside the gitignored `.venv`).
+- **Concept:** treat a scanner finding as evidence to review, not noise to mute. Exceptions are narrow (one fingerprint) and justified in the file.

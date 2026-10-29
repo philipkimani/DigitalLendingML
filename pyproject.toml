@@ -12,6 +12,10 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "openpyxl>=3.1",
+    "ruff>=0.17.3",
+    "mypy>=2.4.1",
+    "pandas-stubs>=3.0.5.260914",
+    "pre-commit>=4.7.0",
 ]
 
 [build-system]
@@ -23,3 +27,24 @@ packages = ["src/lending"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I import order, B bugbear (likely bugs), UP modern syntax,
+# NPY numpy pitfalls, PD pandas pitfalls, SIM simplifications, RUF ruff-specific.
+select = ["E", "W", "F", "I", "B", "UP", "NPY", "PD", "SIM", "RUF"]
+# Mathematical names (V, T_hold, L0, Qh) follow the model's notation, so pep8-naming is not enabled.
+
+[tool.ruff.lint.flake8-bugbear]
+# Params is a frozen dataclass: a shared default instance cannot be mutated, so B008 does not apply.
+extend-immutable-calls = ["lending.params.Params"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true

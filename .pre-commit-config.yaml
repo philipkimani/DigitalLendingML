@@ -1,0 +1,41 @@
+# Runs on every `git commit`; a failing hook blocks the commit.
+# Install once per clone: `uv run pre-commit install`. Run on everything: `uv run pre-commit run --all-files`.
+# Hook versions are pinned; bump with `uv run pre-commit autoupdate`.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files   # stop accidental data dumps
+        args: [--maxkb=500]
+      - id: detect-private-key
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        exclude: \.md$
+
+  - repo: https://github.com/gitleaks/gitleaks   # secret scanner: keys, tokens, connection strings
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  # Python tools run from the project environment, so uv.lock is the single source of truth for their
+  # versions (no second copy for pre-commit to download, no version drift between terminal and hook).
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff-format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false

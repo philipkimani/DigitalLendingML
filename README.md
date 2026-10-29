@@ -34,9 +34,10 @@ uv run pytest tests/unit   # model property tests (~2 s)
 
 ```python
 from lending import Book, Model, solve, simulate, find_lambda
-book = Book.from_frame(df)            # columns: customer_id, loan_amount, days_since_last_loan, ontime_pct, n_increases
-model = Model.calibrate(book)         # late rates and bucket transitions
-lam = find_lambda(book, model)        # capital price that meets the budget
+
+book = Book.from_frame(df)  # columns: customer_id, loan_amount, days_since_last_loan, ontime_pct, n_increases
+model = Model.calibrate(book)  # late rates and bucket transitions
+lam = find_lambda(book, model)  # capital price that meets the budget
 policy, values = solve(book, model, lam)
 result = simulate(book, model, policy, S=100)
 ```

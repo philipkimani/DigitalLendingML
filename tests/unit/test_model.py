@@ -25,7 +25,7 @@ def test_transition_rows_are_probabilities(model):
 def holds_below_cap(book, model):
     pol, _ = solve(book, model, lam=0.0)
     live = np.broadcast_to(live_mask(book, model), pol.shape).copy()
-    live[:, :, model.p.max_k:, :] = False
+    live[:, :, model.p.max_k :, :] = False
     return int((live & ~pol).sum())
 
 
@@ -49,7 +49,7 @@ def test_higher_lgd_never_increases_offers(book, model):
 
 def test_never_offers_at_the_yearly_cap(book, model):
     pol, _ = solve(book, model)
-    assert not pol[:, :, model.p.max_k:, :].any()
+    assert not pol[:, :, model.p.max_k :, :].any()
 
 
 def test_chunked_solve_equals_whole_book(book, model):

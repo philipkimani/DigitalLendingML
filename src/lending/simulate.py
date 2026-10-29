@@ -3,12 +3,13 @@
 Each path draws a customer-specific true reliability, stochastic repayment (early / on time / late / default),
 acceptance, Poisson term extensions, churn and Bayesian re-bucketing.
 """
+
 import numpy as np
 
 from .book import Book
+from .params import month
 from .solver import discount, terminal
 from .states import Model, bucket, logit, sigmoid
-from .params import month
 
 
 def simulate(book: Book, model: Model, policy=None, S: int = 40, seed=1, hist: bool = False) -> dict:
@@ -82,12 +83,25 @@ def simulate(book: Book, model: Model, policy=None, S: int = 40, seed=1, hist: b
     npv += alive * tv * discount(p, np.maximum(t, p.horizon))
     inc = L0[:, None] * p.step * k
     npv -= p.fixed_cost * (k > 0)
-    return dict(npv=npv.sum(0), defaults=dflt.mean(0), churn=churned.mean(0), increases=k.sum(0),
-                capital=(alive * p.weights[r] * inc).sum(0), exposure_inc=(alive * inc).sum(0), grants_m=grants_m)
+    return dict(
+        npv=npv.sum(0),
+        defaults=dflt.mean(0),
+        churn=churned.mean(0),
+        increases=k.sum(0),
+        capital=(alive * p.weights[r] * inc).sum(0),
+        exposure_inc=(alive * inc).sum(0),
+        grants_m=grants_m,
+    )
 
 
 def summarise(res: dict, name: str) -> dict:
-    return dict(strategy=name, NPV_mean=np.mean(res["npv"]), NPV_p5=np.percentile(res["npv"], 5),
-                NPV_p95=np.percentile(res["npv"], 95), increases=np.mean(res["increases"]),
-                default_rate=np.mean(res["defaults"]), churn_rate=np.mean(res["churn"]),
-                capital=np.mean(res["capital"]))
+    return dict(
+        strategy=name,
+        NPV_mean=np.mean(res["npv"]),
+        NPV_p5=np.percentile(res["npv"], 5),
+        NPV_p95=np.percentile(res["npv"], 95),
+        increases=np.mean(res["increases"]),
+        default_rate=np.mean(res["defaults"]),
+        churn_rate=np.mean(res["churn"]),
+        capital=np.mean(res["capital"]),
+    )

@@ -4,6 +4,7 @@ State (r, k, h): risk bucket, increases granted, windows passed without one. The
 state: t = wait + cycle*(k + h) + ext*k. Capital enters only through the terminal charge lam*K(r)*(L_k - L_0),
 so at a fixed lam every customer is independent and any chunk of the book can be solved on its own.
 """
+
 import numpy as np
 
 from .book import Book
@@ -34,7 +35,7 @@ def terminal(book: Book, model: Model, k: int, lam: float) -> np.ndarray:
     pdv = pd_cycle(model, k, model.macro.pd_mult[11])
     net = (1 - pdv) * p.m * L0[:, None] - pdv * p.lgd * Lk[:, None]
     s = (1 - pdv) * (1 - p.c0) * d
-    return d * net * (1 - s ** 6) / (1 - s) - lam * p.weights[None, :] * (Lk - L0)[:, None]
+    return d * net * (1 - s**6) / (1 - s) - lam * p.weights[None, :] * (Lk - L0)[:, None]
 
 
 def solve(book: Book, model: Model, lam: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
@@ -48,7 +49,7 @@ def solve(book: Book, model: Model, lam: float = 0.0) -> tuple[np.ndarray, np.nd
     fbar = p.fee * (1 - p.early * (1 - p.early_fee))  # expected fee net of early-repayment rebates
     dh = discount(p, p.cycle)
     dg = discount(p, p.cycle + book.ext[:, None])
-    for n in range(W, -1, -1):          # windows elapsed
+    for n in range(W, -1, -1):  # windows elapsed
         for k in range(n + 1):
             h = n - k
             TV = terminal(book, model, k, lam)
@@ -66,8 +67,9 @@ def solve(book: Book, model: Model, lam: float = 0.0) -> tuple[np.ndarray, np.nd
             Qh_nodeny = dh * (base_h + (1 - p0) * (1 - p.c0) * contH)  # declined offer: no refusal churn
             if k < p.max_k:
                 contG = V[:, :, k + 1, h] @ model.T_grant.T
-                Qg = dg * ((1 - p1) * (p.m * L0[:, None] + fbar) - p1 * p.lgd * Lk1[:, None]
-                           + (1 - p1) * (1 - p.c0) * contG)
+                Qg = dg * (
+                    (1 - p1) * (p.m * L0[:, None] + fbar) - p1 * p.lgd * Lk1[:, None] + (1 - p1) * (1 - p.c0) * contG
+                )
                 Qo = a * Qg + (1 - a) * Qh_nodeny
             else:
                 Qo = np.full_like(Qh, -np.inf)

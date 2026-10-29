@@ -1,4 +1,5 @@
 """Risk buckets, bucket transitions and the calibrated Model every chunk solves against."""
+
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -50,10 +51,11 @@ def transitions(book: Book, p: Params, seed: int = 7, sims: int = 20) -> tuple[n
 @dataclass(frozen=True, eq=False)
 class Model:
     """Population-level inputs shared by every customer: parameters, macro path, late rates, transitions."""
+
     p: Params
     macro: Macro
-    late: np.ndarray = field(repr=False)     # (3,)
-    T_hold: np.ndarray = field(repr=False)   # (3, 3)
+    late: np.ndarray = field(repr=False)  # (3,)
+    T_hold: np.ndarray = field(repr=False)  # (3, 3)
     T_grant: np.ndarray = field(repr=False)  # (3, 3)
 
     @classmethod

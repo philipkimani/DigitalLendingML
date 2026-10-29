@@ -1,0 +1,3 @@
+# Reviewed false positives. Each line is an exact finding fingerprint (commit:file:rule:line).
+# Built-in Azure role definition id for 'Key Vault Secrets User': public, identical in every tenant, grants nothing alone.
+1b1a9fbad5ce8d3c1513bea7f72fe6d0ddf10ca1:infra/main.bicep:generic-api-key:202

@@ -1,4 +1,5 @@
 """The customer book: one array per attribute, sliceable into chunks for million-customer runs."""
+
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -10,10 +11,10 @@ COLUMNS = ("customer_id", "loan_amount", "days_since_last_loan", "ontime_pct", "
 @dataclass(frozen=True, eq=False)
 class Book:
     ids: np.ndarray = field(repr=False)
-    loan: np.ndarray = field(repr=False)    # initial loan L0
+    loan: np.ndarray = field(repr=False)  # initial loan L0
     ontime: np.ndarray = field(repr=False)  # on-time repayment rate q0 in (0, 1)
-    wait: np.ndarray = field(repr=False)    # days until the first eligibility window
-    ext: np.ndarray = field(repr=False)     # expected term extension (days) when an increase is taken
+    wait: np.ndarray = field(repr=False)  # days until the first eligibility window
+    ext: np.ndarray = field(repr=False)  # expected term extension (days) when an increase is taken
     accept: np.ndarray = field(repr=False)  # acceptance propensity prior
     n_hist: np.ndarray = field(repr=False)  # increases taken last period (for replaying history)
 
@@ -44,4 +45,4 @@ class Book:
         """Yield consecutive sub-books of at most `size` customers (whole book if size is None)."""
         size = size or len(self)
         for i in range(0, len(self), size):
-            yield self[i:i + size]
+            yield self[i : i + size]

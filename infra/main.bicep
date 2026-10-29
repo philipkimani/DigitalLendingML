@@ -199,7 +199,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
 }
 
 var acrPullRole = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-var kvSecretsUserRole = '4633458b-17de-408a-b874-0445c86b69e6'
+var kvSecretsUserRole = '4633458b-17de-408a-b874-0445c86b69e6' // gitleaks:allow built-in Azure role id (public, same in every tenant)
 
 resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: acr
