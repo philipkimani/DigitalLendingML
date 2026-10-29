@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+CLAUDE.md
+CLAUDE.local.md
+infra/*.local.bicepparam
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+mlruns/
+outputs/
+data/*.csv
+data/*.parquet
