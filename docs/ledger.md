@@ -85,3 +85,47 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
   - `az account get-access-token --resource-type oss-rdbms`: an Entra token is what you use as the Postgres "password".
 - **Concept:** ARM deployments are *idempotent*. Re-running the same template changes nothing; changing the file and re-running applies only the difference. Deployment history (portal → resource group → Deployments) keeps every run's inputs and outputs.
 - **Cost control:** `az postgres flexible-server stop -g rg-digitallending-dev -n <server>` when not in use (auto-restarts after 7 days).
+
+### 12. First commit pushed ✅
+- **What:** `.gitignore`, `docs/architecture.md`, `docs/ledger.md`, `infra/main.bicep` pushed to `main` (commit `1b1a9fb`).
+- **How:** scan untracked files for private terms → `git add -A` → `git commit` → `git push -u origin main`
+- **Concept:** commits use the GitHub no-reply email so the author address in public history is not a personal inbox.
+
+### 13. Organisation and scale context ✅
+- **What:** The project is built for **Ruskins Digital Lending Ltd** (fictional Kenyan digital microlender): up to 1M active borrowers per week, a 3–5M customer book. Targets recorded in `docs/architecture.md` → "Organisation and scale".
+- **Why:** Sizing decisions (chunking, database tier, batch window, partitioning) need a concrete load to design against. Model assumptions and reference data are unchanged.
+
+### 14. Python environment locked with uv ✅
+- **What:** `pyproject.toml` (runtime: numpy, pandas; dev: pytest, openpyxl), `.python-version` = 3.12, `uv.lock`, `.venv`.
+- **How:** `uv python pin 3.12` · `uv lock` · `uv sync` · run anything with `uv run ...`
+- **Concept:** reproducibility input 2 (environment). `uv.lock` pins every package, including transitive ones, to an exact version and hash; `uv sync` recreates the identical environment on any machine or CI runner. The Azure ML environment will be built from the same lock.
+
+### 15. Model ported to `src/lending/` ✅
+- **What:** The research script split into a package:
+
+| Module | Contents |
+|---|---|
+| `params.py` | Frozen `Params` (all assumptions), Kenya 2023 macro scenarios |
+| `book.py` | `Book`: customer arrays, built from a table, sliceable into chunks |
+| `states.py` | Buckets, late rates, transition matrices; `Model` = population-level calibration shared by all chunks |
+| `solver.py` | Vectorised backward induction for every customer at a given capital price λ |
+| `simulate.py` | Monte Carlo lifecycle simulator, strategy summary |
+| `capital.py` | Chunked capital measurement and the λ* bisection |
+
+- **Changes from the reference:** no module-level globals (everything passed explicitly, so it is testable and two scenarios can run side by side); solve and simulation run **in chunks** so memory is bounded by chunk size, not book size. At 5M customers the reference layout would need ~8 GB for the value table and ~80 GB for simulation arrays.
+- **Concept:** at a fixed λ every customer is an independent MDP (Lagrangian decomposition), so chunking the solve is *exact*, not an approximation. Capital is a sum over customers, so it can be accumulated chunk by chunk. Chunked simulation uses child seeds (`SeedSequence.spawn`), deterministic for a given (seed, chunk size).
+
+### 16. Unit tests: 9 passing, one wrong assumption found ✅
+- **How:** `uv run pytest tests/unit` (2,000-customer seeded test book, ~2 s)
+- **Tests:** transition rows are probabilities · no-risk/free-capital/no-delay ⇒ always offer · higher LGD never increases offers · never offer at the yearly cap · chunked solve = whole-book solve · chunked capital deterministic · λ* within budget and one bisection step lower breaks it · unreachable budget raises.
+- **Finding:** the planned check "λ = 0 and zero risk ⇒ offer everywhere" **failed** (10,116 holds out of 109,893 live states). Diagnosis: holds clustered in later windows (day 160–300) for customers with long term extensions. Hypothesis tested by setting the term extension to 0: holds dropped to 0. Cause: an accepted increase stretches the loan term, pushing later eligibility windows past year end; one lost cycle of margin (4% of the loan, ~$110 on $2,750) outweighs the $40 fee. **The model was right; the test statement was incomplete.** The test now states the full condition, and a second test pins the term-extension trade-off as intended behaviour.
+- **Concept:** a failing test is evidence about either the code or the claim. Investigate before "fixing" either.
+
+### 17. Parity with the research implementation ✅
+- **What:** On the original 30,000-customer book, the port reproduces all five strategy results (NPV mean and P5–P95, increases, default rate, churn, capital) to 1e-6 and the offer-rate policy map to 1e-9, including λ* and budget use.
+- **How:** `LENDING_REFERENCE_DIR=<folder> uv run pytest tests/parity` (opt-in; reference files are not in the repo; skipped otherwise). 6 min 15 s.
+- **Concept:** a refactor of a model is only safe with a parity check against the trusted version on real inputs. Unit tests prove properties; parity proves sameness.
+
+### 18. Scale finding (deferred): λ bisection at full Ruskins scale ⏸
+- **Measured (1 core):** 30k customers: solve 0.4 s, 100-path simulation 5.6 s. Extrapolated to 5M: solve ~1 min, one simulation ~15 min, full bisection (16 × both) **~4.4 h**.
+- **Status:** recorded for later. Ruskins scale is the target direction; the current priority is a proof of concept of model deployment to production. Likely future design: nightly solve at an approved λ, monthly λ calibration as a parallel job with maker-checker approval.

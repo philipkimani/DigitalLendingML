@@ -1,0 +1,25 @@
+[project]
+name = "lending"
+version = "0.1.0"
+description = "Loan limit graduation model: MDP policy under a capital budget (Ruskins Digital Lending, fictional)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=2.1",
+    "pandas>=2.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "openpyxl>=3.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lending"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

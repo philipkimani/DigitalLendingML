@@ -2,6 +2,21 @@
 
 Nightly batch solves the MDP for every customer, writes versioned decisions to Postgres, a small API serves them.
 
+## Organisation and scale
+
+Built for **Ruskins Digital Lending Ltd** (fictional), a Kenyan digital microlender. Design targets (working assumptions):
+
+| Dimension | Target | Design consequence |
+|---|---|---|
+| Active borrowers | up to **1M per week** | |
+| Customer book | **3–5M** customers | Nightly solve and simulation run in **chunks** (customers are independent at a fixed λ; capital is additive), never the whole book in memory |
+| Loan events | ~5M per week (disburse, repay/miss, offer, accept/decline) ≈ 8/s average, ~100/s at peaks (month end, mornings) | Idempotent ingest; `loan_events` partitioned by month; old partitions archived to Parquet in storage |
+| Decision lookups | ~1M per week ≈ 2/s average, ~50/s peak | Primary-key read of precomputed rows; one small container handles it |
+| Nightly batch | 3–5M customers, finished by 04:00 Nairobi | Chunked solve on the ML cluster; Monte Carlo validation on a sample, full runs weekly |
+| Database | Dev: B1ms. Prod: General Purpose (D-series) with HA and read replica for the dashboard | Sized from measured load, not guessed |
+
+Model assumptions and the reference data are unchanged; they are replaced by estimates once logged outcomes exist.
+
 ```mermaid
 flowchart LR
     accTitle: DigitalLendingML production architecture on Azure
