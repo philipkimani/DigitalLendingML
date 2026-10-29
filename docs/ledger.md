@@ -129,3 +129,21 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 ### 18. Scale finding (deferred): λ bisection at full Ruskins scale ⏸
 - **Measured (1 core):** 30k customers: solve 0.4 s, 100-path simulation 5.6 s. Extrapolated to 5M: solve ~1 min, one simulation ~15 min, full bisection (16 × both) **~4.4 h**.
 - **Status:** recorded for later. Ruskins scale is the target direction; the current priority is a proof of concept of model deployment to production. Likely future design: nightly solve at an approved λ, monthly λ calibration as a parallel job with maker-checker approval.
+
+### 19. Project foundations ✅
+- **What:** the setup a data-science repo needs before modelling, which was skipped at first.
+
+| File / folder | Purpose |
+|---|---|
+| `README.md` | Front door: what the project is, quick start, layout, status |
+| `LICENSE` | MIT: others may reuse with attribution (no license = all rights reserved) |
+| `.gitattributes` | Text stored and checked out with LF; binary types marked; ends CRLF warnings on Windows |
+| `.editorconfig` | Same encoding, line endings and indentation in every editor |
+| `.gitignore` | Adds `.claude/` (private), data and model artifacts, notebook checkpoints |
+| `.env.example` | Every setting the code reads, without values; no passwords exist because auth is Entra |
+| `requirements.txt` | **Generated** from `uv.lock` (`uv export --no-dev`), runtime only, with hashes, for Azure ML and other pip-based tools |
+| `data/{raw,interim,processed}`, `models/`, `notebooks/`, `reports/figures/` | Cookiecutter-data-science layout: immutable raw data, derived data, exploration and production code kept apart |
+
+- **Concept: one source of truth for dependencies.** `pyproject.toml` declares, `uv.lock` pins, `requirements.txt` is an export. Editing the export by hand creates drift between local and cloud environments.
+- **Concept: raw data is immutable.** Code reads `raw/` and writes `interim/`/`processed/`; a run can always be recreated from raw plus code.
+- **Next:** code quality tooling (ruff, type checker, pre-commit with a secret scanner).

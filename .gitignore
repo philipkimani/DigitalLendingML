@@ -1,15 +1,32 @@
+# Python
 __pycache__/
 *.pyc
 .venv/
-.env
-.env.*
-CLAUDE.md
-CLAUDE.local.md
-infra/*.local.bicepparam
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+infra/*.local.bicepparam
+
+# Private AI tooling context
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+
+# Data and artifacts: never committed (folders kept with .gitkeep)
+data/**
+!data/**/
+!data/**/.gitkeep
+models/**
+!models/.gitkeep
+reports/figures/*
+!reports/figures/.gitkeep
 mlruns/
 outputs/
-data/*.csv
-data/*.parquet
+
+# Notebooks: commit the paired .py (jupytext), not outputs
+.ipynb_checkpoints/
