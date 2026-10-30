@@ -3,7 +3,8 @@
 //   az deployment group create -g rg-digitallending-dev -f infra/main.bicep \
 //     -p adminObjectId=<entra object id> adminName=<registered admin name> \
 //        apiImage=<image the API runs now: az containerapp show ... --query properties.template.containers[0].image> \
-//        allowedIp=<client IP allowed to call the API>
+//        allowedIp=<client IP allowed to call the API> \
+//        githubRepo=<owner>@<owner id>/<repo>@<repo id>   (gh api repos/<owner>/<repo> --jq '"\(.owner.login)@\(.owner.id)/\(.name)@\(.id)"')
 // No secrets: Postgres is Entra-only, services use the user-assigned managed identity.
 
 param location string = resourceGroup().location
@@ -20,8 +21,9 @@ param amlVmSize string = 'Standard_DS2_v2' // 2 vCPU; 2 nodes fit the default 4-
 param apiImage string
 @description('Dev stopgap: the only client IP allowed to call the API. Production: Entra auth + APIM, no IP list.')
 param allowedIp string
-@description('GitHub repository whose main-branch workflow may deploy (OIDC federated credential subject).')
-param githubRepo string = 'philipkimani/DigitalLendingML'
+// GitHub puts immutable ids in the OIDC subject, so a renamed, deleted or re-created repo of the same name gets no access.
+@description('Repository whose main-branch workflow may deploy, as GitHub\'s token subject names it: <owner>@<owner id>/<repo>@<repo id>.')
+param githubRepo string
 
 var name = 'digitallending-${env}'
 var suffix = take(uniqueString(resourceGroup().id), 6)
