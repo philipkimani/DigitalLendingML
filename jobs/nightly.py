@@ -62,7 +62,9 @@ def main() -> None:
         df = pd.DataFrame(cur.execute(BOOK_SQL).fetchall())
 
     # Fingerprint of the exact rows solved: customer_state changes over time, so the run records which state it saw.
-    md5 = hashlib.md5(df.to_csv(index=False).encode()).hexdigest()
+    # Fixed "\n" line endings: pandas defaults to the OS's (\r\n on Windows), which would give the same rows a
+    # different fingerprint on a laptop than on Azure ML.
+    md5 = hashlib.md5(df.to_csv(index=False, lineterminator="\n").encode()).hexdigest()
     data_version = f"customer_state:n={len(df)}:md5={md5}"
 
     # --- 2. Solve ----------------------------------------------------------------------------------

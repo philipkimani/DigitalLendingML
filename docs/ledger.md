@@ -296,3 +296,18 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Not covered by the dry run:** the managed identity's grants (it ran as the admin), the Azure ML environment and compute, network access from Azure, and MLflow logging. The first cloud run covers those.
 - **Deferred:** Q-values and reason codes in `decisions` (they need the solver to return Q, which touches parity-checked code; needed for the API's explanations); a schedule (billable, needs approval).
 - **Concept:** keep long computation outside the write transaction, and make the write transaction all-or-nothing. Readers see the old run until the commit and the full new run after it.
+
+### 34. PoC step 3 (part 2): first nightly run on Azure ML, published ✅
+- **Commits (local only, not pushed):** model, schema, job and docs; then the Azure ML config, so the recorded SHA describes everything that ran. Pre-commit checks passed (gitleaks, ruff, mypy). A scan for personal and environment identifiers in the committed files was clean.
+- **Environment:** `azureml/environments/nightly.yml` (`lending-nightly:1`): Microsoft's Ubuntu 22.04 base image plus `conda.yml`, whose pip pins are generated from `uv.lock` (`jobs` + new `azureml` group: mlflow, azureml-mlflow). Local and cloud runs use the same library versions. The `azureml` group isn't installed locally. `az ml environment create -f azureml/environments/nightly.yml -g rg-digitallending-dev -w mlw-digitallending-dev`.
+- **Job:** `azureml/jobs/nightly.yml`, a command job on `cpu-cluster`. `.amlignore` allows only `src/` and `jobs/` to be uploaded. The managed identity's client id and the server name are passed at submit (`--set environment_variables.AZURE_CLIENT_ID=... environment_variables.PGHOST=... inputs.model_version=$(git rev-parse HEAD)`), never committed.
+- **Result:** completed about 13 minutes after submission, including the one-off image build.
+  - Run published with parameter version 21, the commit SHA, λ\* 0.646057 and 5,569 offers of 30,000, identical to the local dry run.
+  - The audit shows the **managed identity** inserting and publishing the run, so the `lending_app` grants are sufficient.
+  - Metrics logged to MLflow (Azure ML studio → job → Metrics).
+  - Cost: cents (one DS2_v2 node for minutes; the cluster scales back to 0).
+- **Bug found and fixed: the data fingerprint depended on the operating system.** The same rows hashed differently locally and in the cloud. Cause: `DataFrame.to_csv` uses the OS line ending (`\r\n` on Windows, `\n` on Linux). Fixed by forcing `lineterminator="\n"`. The published run's fingerprint was computed with `\n`, so it is already the canonical value.
+  - **Correction to entry 33:** the dry run's fingerprint matched the data asset's MD5 only because both were written with Windows line endings. The asset MD5 is a checksum of a file; the run fingerprint is a hash of the rows as read. They are related but different checks.
+- **Gotcha:** running `az logout` in a second az profile while the Windows account broker (WAM) is on also signed the shared Windows account out of the first profile ("Account has previously been signed out of this application"). Fix: `az login` again. Rule: turn the broker off in a secondary profile before using it, and don't run `az logout` there while the broker is on.
+- **Note:** Azure ML drops git details from a job when the remote URL contains anything credential-shaped (here only a username). The SHA is recorded anyway through `--model-version`.
+- **Concept:** a reproducibility fingerprint must be canonical: identical inputs give an identical hash on any machine. Comparing a local run with a cloud run on the same data is what exposed this.
