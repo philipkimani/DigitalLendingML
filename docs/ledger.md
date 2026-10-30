@@ -440,3 +440,12 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Mutation check:** with signature verification switched off, the forged-signer and unsigned-token tests fail, so they really guard it; restored, 47 tests pass.
 - **Fixed on the way:** API test modules set `app.dependency_overrides` at import time on the one shared app object, so the last module imported silently replaced the others' fakes (two failures). Overrides are now per-test autouse fixtures that clear afterwards. `tests/` became a package (`__init__.py`), because mypy found the token helper under two module names; two copies of it would hold two different keys.
 - **Docs:** `docs/api.md` has an Authentication section (roles per endpoint, getting a token, 401/403/503).
+
+### 46. Entra auth, step 3: deployed and checked live (IP allow-list still on)
+- **Order:** a Bicep deploy first added `AUTH_TENANT_ID` and `AUTH_AUDIENCE` to the Container App while the previous image (which ignores them) kept serving; then the auth code was pushed and the pipeline rolled out the new image. The other order would have answered 503 until the settings arrived.
+- **Live checks** (from the allowed client, image at the auth commit): `/healthz` without a token → 200; `/decisions/63` without a token → 401 "missing bearer token"; with a malformed token → 401 "invalid token"; with the admin's Entra token → 200 (hold, `capital_limit`, run 19); `POST /events` with an empty batch and the token → 422 (authentication and the role passed, validation rejected the body, nothing written); the same without a token → 401.
+- **Not checked live:** 403 (the admin holds both roles; the unit tests cover it) and a principal with no assignment (Entra refuses it a token, checked in entry 44).
+- **Next:** remove the IP allow-list (separate approval: the API becomes reachable from any address, with a valid token required).
+
+### 47. README rewritten around the model and its research results
+- **What:** the README now explains the model (risk states, uptake, the decision equations, the Lagrangian decomposition, the richer validation simulator), the research results on the 30,000-customer reference replay (strategy comparison, the shape of the optimal policy, behaviour, macro scenarios, sensitivity, limitations), the production design, the current architecture including auth and CI, an updated quick start (`solve` returns three values) and layout.
