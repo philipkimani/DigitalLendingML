@@ -1,0 +1,6 @@
+# What Azure ML uploads as job code (same syntax as .gitignore). Allow-list: only the model package and
+# the job entrypoints; never data, secrets, the virtualenv or notebooks.
+/*
+!/src/
+!/jobs/
+**/__pycache__/

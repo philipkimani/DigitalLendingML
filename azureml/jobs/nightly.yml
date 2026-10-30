@@ -1,0 +1,24 @@
+# Azure ML command job: one manual run of jobs/nightly.py on the scale-to-zero CPU cluster.
+#
+# Submit from the repo root, with a clean, committed tree (the SHA must describe the code that runs).
+# The identity's client id and the server name are passed at submit time, never committed:
+#   az ml job create -f azureml/jobs/nightly.yml -g rg-digitallending-dev -w mlw-digitallending-dev \
+#     --set inputs.model_version=$(git rev-parse HEAD) \
+#           environment_variables.AZURE_CLIENT_ID=<client id of id-digitallending-dev> \
+#           environment_variables.PGHOST=<server>.postgres.database.azure.com
+#
+# The cluster runs as the user-assigned managed identity; AZURE_CLIENT_ID tells DefaultAzureCredential
+# to use it, and PGUSER is its Postgres role (created by db/bootstrap_identity.sql).
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+experiment_name: nightly
+display_name: nightly-solve
+code: ../..                         # repo root; .amlignore keeps the upload to src/ and jobs/
+command: >-
+  PYTHONPATH=src python jobs/nightly.py --model-version ${{inputs.model_version}}
+inputs:
+  model_version: ""                 # set with --set at submit
+environment: azureml:lending-nightly:1
+compute: azureml:cpu-cluster
+environment_variables:
+  PGUSER: id-digitallending-dev

@@ -1,0 +1,13 @@
+# Azure ML environment for the nightly job: Microsoft's Ubuntu 22.04 base image plus the pinned
+# libraries in conda.yml. Azure ML builds the Docker image once per version (in the workspace's
+# container registry) and reuses it for every run.
+#
+# Register (builds on first use):
+#   az ml environment create -f azureml/environments/nightly.yml -g rg-digitallending-dev -w mlw-digitallending-dev
+# A changed conda.yml means a new version here, never an in-place edit: runs record the version they used.
+$schema: https://azuremlschemas.azureedge.net/latest/environment.schema.json
+name: lending-nightly
+version: "1"
+image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04
+conda_file: conda.yml
+description: Python 3.12, the lending model's dependencies, psycopg, azure-identity and MLflow, pinned from uv.lock.
