@@ -43,7 +43,8 @@ if ($githubRepo -notmatch '^[^@/]+@\d+/[^@/]+@\d+$') { throw "unexpected githubR
 $params = @(
     "adminObjectId=$(az ad signed-in-user show --query id -o tsv)",
     "adminName=$(az postgres flexible-server microsoft-entra-admin list -g $ResourceGroup -s $server --query '[0].principalName' -o tsv)",
-    "apiImage=$image", "allowedIp=$ip", "githubRepo=$githubRepo"
+    "apiImage=$image", "allowedIp=$ip", "githubRepo=$githubRepo",
+    "apiAudience=$(az ad app list --display-name lending-api-dev --query '[0].appId' -o tsv)"
 )
 
 # What-if, real changes only: lines with "=>" minus the reference() values what-if can't resolve (known noise).

@@ -5,9 +5,11 @@ nothing, and malformed events never reach the store. (The real SQL path is check
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 
 from api.main import EVENT_FIELDS, EventConflict, IngestResult, app, conflicting, event_store
+from tests.unit.tokens import auth, install
 
 stored: dict[str, dict] = {}
 REPAY = {"loan_id": "L1", "amount": 1200, "due_at": "2026-10-30T23:59:00+03:00"}
@@ -22,8 +24,16 @@ def fake_ingest(events):
     return IngestResult(accepted=len(events) - len(existing), duplicate=len(existing))
 
 
-app.dependency_overrides[event_store] = lambda: fake_ingest
-client = TestClient(app)
+install()
+client = TestClient(app, headers=auth())  # a valid token with both roles on every request
+
+
+@pytest.fixture(autouse=True)
+def fake_store():
+    # Set per test and cleared after: the app object is shared by every test module.
+    app.dependency_overrides[event_store] = lambda: fake_ingest
+    yield
+    app.dependency_overrides.clear()
 
 
 def event(event_id="e1", **kw):

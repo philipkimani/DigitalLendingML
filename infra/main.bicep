@@ -4,7 +4,8 @@
 //     -p adminObjectId=<entra object id> adminName=<registered admin name> \
 //        apiImage=<image the API runs now: az containerapp show ... --query properties.template.containers[0].image> \
 //        allowedIp=<client IP allowed to call the API> \
-//        githubRepo=<owner>@<owner id>/<repo>@<repo id>   (gh api repos/<owner>/<repo> --jq '"\(.owner.login)@\(.owner.id)/\(.name)@\(.id)"')
+//        githubRepo=<owner>@<owner id>/<repo>@<repo id>   (gh api repos/<owner>/<repo> --jq '"\(.owner.login)@\(.owner.id)/\(.name)@\(.id)"') \
+//        apiAudience=<client id of the lending-api app, an output of infra/entra.bicep>
 // No secrets: Postgres is Entra-only, services use the user-assigned managed identity.
 
 param location string = resourceGroup().location
@@ -24,6 +25,8 @@ param allowedIp string
 // GitHub puts immutable ids in the OIDC subject, so a renamed, deleted or re-created repo of the same name gets no access.
 @description('Repository whose main-branch workflow may deploy, as GitHub\'s token subject names it: <owner>@<owner id>/<repo>@<repo id>.')
 param githubRepo string
+@description('Client id of the lending-api app registration (infra/entra.bicep): the audience the API accepts tokens for.')
+param apiAudience string
 
 var name = 'digitallending-${env}'
 var suffix = take(uniqueString(resourceGroup().id), 6)
@@ -224,6 +227,9 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'PGDATABASE', value: db.name }
             { name: 'PGUSER', value: uami.name } // its Postgres role (db/bootstrap_identity.sql)
             { name: 'AZURE_CLIENT_ID', value: uami.properties.clientId }
+            // Entra token validation (api/main.py): without both, protected endpoints refuse with 503.
+            { name: 'AUTH_TENANT_ID', value: tenant().tenantId }
+            { name: 'AUTH_AUDIENCE', value: apiAudience }
           ]
         }
       ]

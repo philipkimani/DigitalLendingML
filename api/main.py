@@ -4,23 +4,34 @@
     POST /events                  partner event ingest, idempotent on the partner's event_id
     GET /healthz                  liveness (no database call, so a database blip doesn't restart the app)
 
+Callers authenticate with an Entra ID access token (Authorization: Bearer ...) for the lending-api app
+(infra/entra.bicep), and each endpoint needs an app role in it: Decisions.Read for /decisions, Events.Write
+for /events. AUTH_TENANT_ID and AUTH_AUDIENCE (the app's client id) are set on the Container App; without them
+protected endpoints answer 503 rather than run unauthenticated. /healthz needs no token.
+
 Connection settings come from the standard libpq variables PGHOST, PGDATABASE, PGUSER (set on the
 Container App). There is no stored password: each new connection gets a fresh Entra token from the
 managed identity (DefaultAzureCredential; AZURE_CLIENT_ID picks the identity). Azure Postgres only checks
 the token at connect time, so pooled connections are recycled every 30 minutes, well inside its lifetime.
 
 Run locally against the dev database, signed in with the az CLI:
-    PGHOST=... PGDATABASE=lending PGUSER=<your Entra UPN> uv run --group api uvicorn api.main:app --port 8000
+    PGHOST=... PGDATABASE=lending PGUSER=<your Entra UPN> AUTH_TENANT_ID=... AUTH_AUDIENCE=... \\
+        uv run --group api uvicorn api.main:app --port 8000
+Call it with a token: az account get-access-token --scope <AUTH_AUDIENCE>/.default --query accessToken -o tsv
 """
 
+import os
 from collections.abc import Callable, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Literal
+from functools import cache
+from typing import Annotated, Any, Literal
 
+import jwt
 import psycopg
 from azure.identity import DefaultAzureCredential
 from fastapi import Body, Depends, FastAPI, HTTPException, Path
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
@@ -206,6 +217,63 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Lending decisions", version="0.1.0", lifespan=lifespan)
 
 
+# --- Authentication: Entra ID access tokens, authorisation by app role --------------------------------
+bearer = HTTPBearer(auto_error=False)  # missing header -> our own 401 with the standard challenge
+UNAUTHORIZED = {"WWW-Authenticate": "Bearer"}
+
+
+def auth_config() -> tuple[str, str]:
+    """(tenant id, audience), or 503: an unconfigured API must refuse, never serve without auth."""
+    tenant, audience = os.environ.get("AUTH_TENANT_ID"), os.environ.get("AUTH_AUDIENCE")
+    if not (tenant and audience):
+        raise HTTPException(status_code=503, detail="authentication is not configured")
+    return tenant, audience
+
+
+@cache
+def jwks(tenant: str) -> jwt.PyJWKClient:
+    # Entra's signing keys for the tenant, cached; an unknown key id (rotation) triggers a refetch.
+    return jwt.PyJWKClient(f"https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys", lifespan=3600)
+
+
+def signing_key(token: str, tenant: str) -> Any:
+    """The public key the token says it was signed with (tests replace this with a local test key)."""
+    return jwks(tenant).get_signing_key_from_jwt(token).key
+
+
+def verify_token(creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> dict:
+    """Claims of a valid v2 access token for this API: signature, issuer, tenant, audience, expiry."""
+    tenant, audience = auth_config()
+    if creds is None:
+        raise HTTPException(status_code=401, detail="missing bearer token", headers=UNAUTHORIZED)
+    try:
+        claims = jwt.decode(
+            creds.credentials,
+            signing_key(creds.credentials, tenant),
+            algorithms=["RS256"],  # never let the token choose its algorithm
+            audience=audience,
+            issuer=f"https://login.microsoftonline.com/{tenant}/v2.0",
+            options={"require": ["exp", "iat", "aud", "iss", "tid"]},
+            leeway=60,  # seconds of clock skew
+        )
+    except (jwt.PyJWTError, ValueError) as exc:
+        raise HTTPException(status_code=401, detail="invalid token", headers=UNAUTHORIZED) from exc
+    if claims["tid"] != tenant:
+        raise HTTPException(status_code=401, detail="invalid token", headers=UNAUTHORIZED)
+    return claims
+
+
+def require_role(role: str) -> Callable[[dict], dict]:
+    """Dependency: a valid token that also carries this app role (403 when valid but without it)."""
+
+    def check(claims: Annotated[dict, Depends(verify_token)]) -> dict:
+        if role not in claims.get("roles", []):
+            raise HTTPException(status_code=403, detail=f"requires the {role} role")
+        return claims
+
+    return check
+
+
 def decision_store() -> Iterator[Callable[[int], dict | None]]:
     """Dependency: a lookup function (tests swap in a fake, so no database is needed)."""
 
@@ -237,6 +305,7 @@ def event_store() -> Iterator[Callable[[list[Event]], IngestResult]]:
 def post_events(
     events: Annotated[list[Event], Body(min_length=1, max_length=MAX_BATCH)],
     ingest: Annotated[Callable[[list[Event]], IngestResult], Depends(event_store)],
+    _: Annotated[dict, Depends(require_role("Events.Write"))],
 ) -> IngestResult:
     """Store a batch of partner events. Safe to retry: identical events already stored count as duplicates.
 
@@ -264,6 +333,7 @@ def healthz() -> dict:
 def get_decision(
     customer_id: Annotated[int, Path(ge=0, le=2**63 - 1)],  # bigint range, as in the decisions table
     lookup: Annotated[Callable[[int], dict | None], Depends(decision_store)],
+    _: Annotated[dict, Depends(require_role("Decisions.Read"))],
 ) -> dict:
     row = lookup(customer_id)
     if row is None:

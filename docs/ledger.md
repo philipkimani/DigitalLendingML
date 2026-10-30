@@ -410,3 +410,33 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Process:** `uv run pre-commit run --all-files` before every commit (exactly what the hook runs), instead of a hand-picked subset.
 - **Checks:** both scripts parse; `dev-env.ps1` then `check_reasons.sql` against dev passed 6/6 with nothing left behind; `allow-my-ip.ps1` reported all three addresses equal and changed nothing. Not yet exercised: its update and deploy path (needs an IP change) and the CI job (runs on the push).
 - **Concept:** move checks left. A bug found by CI on a fresh database costs a red tick; the same bug found on the shared dev database costs a debugging session and risks data.
+
+### 42. First published run with reason codes (Azure ML), served by the live API ✅
+- **Run:** nightly job submitted at `9b652b6` (tree clean and in sync with origin) as in entry 34. Queued while the scale-to-zero cluster allocated a node, then ran and published **run 19** (run ids 10–18 were used by rolled-back dry runs: sequences don't roll back). λ\* 0.802, set 22, same data fingerprint as run 9.
+- **Reasons:** 5,060 `npv_positive`, 3,300 `capital_limit`, 21,640 `risk_return`, as in the dry run; the database accepted all 30,000 rows under the 004 constraint.
+- **Live API:** `/decisions/63` → hold, `capital_limit`, plain-language reason, q_hold 648.16 vs q_offer 647.89; `/decisions/2` → hold, `risk_return` (597.15 vs 504.10); `/decisions/1` → offer, `npv_positive` (136.30 vs 136.15). Every response carries run 19, set 22 and the model SHA.
+- **Concept:** "queued" on Azure ML with a min-0 cluster is node allocation, not a problem: the price of paying only while jobs run.
+
+### 43. API reference for consumers (`docs/api.md`)
+- **What:** a reference for the decision API's consumers (the planned mock customer app first): endpoints, every response field, the three reason codes and how they are derived, how to read `q_hold`/`q_offer` (the gap is the strength of the preference; the values cover the customer's remaining year, not one increase), errors, the per-type event payload contract and the 200/409/422 semantics of ingest.
+- **Examples:** customers 1 (offer, `npv_positive`, by 15 cents), 63 (hold, `capital_limit`, by 27 cents; offered at the 250k budget) and 2 (hold, `risk_return`, by about 93 dollars) from run 19, all synthetic.
+
+### 44. Entra auth, step 1: the API's app registration, roles and assignments (Graph Bicep)
+- **What:** `infra/entra.bicep` (Microsoft Graph Bicep extension, types pinned in `infra/bicepconfig.json`) declares the application `lending-api-dev` and its service principal:
+  - app roles `Decisions.Read` (GET /decisions) and `Events.Write` (POST /events), assignable to users and to applications / managed identities;
+  - v2 access tokens; identifier URI `api://<tenant id>/lending-api-dev`;
+  - delegated scope `access_as_user`, with the Azure CLI (Microsoft's public client) pre-authorised, so a user can test with `az account get-access-token --scope <api client id>/.default`;
+  - `appRoleAssignmentRequired`: Entra issues tokens only to principals assigned a role;
+  - role assignments from deploy-time parameters (object ids are never committed). Assigned now: the admin user, both roles. The mock app's identity comes later.
+- **Why:** callers are authorised by identity and role instead of IP address (the IP allow-list broke twice in a day); no client secrets anywhere.
+- **How:** `az bicep build` for both templates; what-if (it cannot preview Graph resources, "ExtensibleResourceNotSupported", but showed no Azure resource changing: incremental mode); `az deployment group create -g <rg> -f infra/entra.bicep -p @<params file>` (a parameters file, because PowerShell strips the quotes inside inline JSON array arguments). The deploy worked with the admin's guest account, so no scripted fallback was needed.
+- **Verified:** a token requested as the admin has `aud` = the API's client id, `iss` = `https://login.microsoftonline.com/<tenant>/v2.0`, `ver` 2.0, `scp` access_as_user, `roles` [Events.Write, Decisions.Read], `azp` = the Azure CLI. The dev checker account (no assignment) is refused a token: `AADSTS50105 ... block users unless they are specifically granted ('assigned') access`.
+- **Concept:** app roles are the permission model for service-to-service APIs; the token carries the roles, so the API checks a claim instead of calling a directory. Requiring assignment makes "who may even obtain a token" an explicit, auditable list.
+
+### 45. Entra auth, step 2: token validation in the API (code and tests; not deployed)
+- **What:** `api/main.py` validates `Authorization: Bearer` tokens with PyJWT (new dependency `pyjwt[crypto]` in the `api` group): RS256 only (the token can't choose its algorithm), signature against Entra's published keys for the tenant (cached, refetched on an unknown key id), issuer `https://login.microsoftonline.com/<tenant>/v2.0`, `tid`, audience = the lending-api client id, expiry with 60 s leeway, required claims. Then the role per endpoint: `Decisions.Read` for `GET /decisions`, `Events.Write` for `POST /events`; `/healthz` stays open. 401 (with `WWW-Authenticate: Bearer`) = not authenticated, 403 = authenticated without the role. **Fails closed:** without `AUTH_TENANT_ID`/`AUTH_AUDIENCE` protected endpoints return 503.
+- **Infra:** `infra/main.bicep` gains `apiAudience` (deploy-time parameter) and sets `AUTH_TENANT_ID` (`tenant().tenantId`) and `AUTH_AUDIENCE` on the Container App; `scripts/allow-my-ip.ps1` passes it. What-if: two new environment variables, image unchanged, plus known noise.
+- **Tests** (`tests/unit/test_auth.py`, helper `tests/unit/tokens.py`): real RS256 tokens signed with a throwaway key; valid + role → through; missing / malformed / Basic → 401 with challenge; wrong audience, other tenant's issuer, wrong `tid`, expired, missing claim, a different signer → 401; `alg: none` with otherwise valid claims → 401; valid without the role → 403 (both directions); unconfigured → 503; `/healthz` open. Existing API tests now send a valid token.
+- **Mutation check:** with signature verification switched off, the forged-signer and unsigned-token tests fail, so they really guard it; restored, 47 tests pass.
+- **Fixed on the way:** API test modules set `app.dependency_overrides` at import time on the one shared app object, so the last module imported silently replaced the others' fakes (two failures). Overrides are now per-test autouse fixtures that clear afterwards. `tests/` became a package (`__init__.py`), because mypy found the token helper under two module names; two copies of it would hold two different keys.
+- **Docs:** `docs/api.md` has an Authentication section (roles per endpoint, getting a token, 401/403/503).

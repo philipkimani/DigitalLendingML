@@ -4,9 +4,11 @@ input validation. (The real database path is checked by calling the running API.
 
 from datetime import UTC, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 
 from api.main import REASONS, app, decision_store
+from tests.unit.tokens import auth, install
 
 ROW = {
     "customer_id": 1,
@@ -20,8 +22,17 @@ ROW = {
     "q_offer": 845.25,
 }
 OLD_RUN_ROW = ROW | {"customer_id": 3, "reason_code": None, "q_hold": None, "q_offer": None}
-app.dependency_overrides[decision_store] = lambda: lambda cid: {1: ROW, 3: OLD_RUN_ROW}.get(cid)
-client = TestClient(app)  # not used as a context manager, so the lifespan (real pool) never opens
+install()
+# Not used as a context manager, so the lifespan (real pool) never opens. Every request carries a valid token.
+client = TestClient(app, headers=auth())
+
+
+@pytest.fixture(autouse=True)
+def fake_store():
+    # Set per test and cleared after: the app object is shared by every test module.
+    app.dependency_overrides[decision_store] = lambda: lambda cid: {1: ROW, 3: OLD_RUN_ROW}.get(cid)
+    yield
+    app.dependency_overrides.clear()
 
 
 def test_known_customer_returns_the_published_decision():
