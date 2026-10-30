@@ -2,6 +2,7 @@
 
 from .book import Book
 from .capital import capital, find_lambda
+from .contract import validate
 from .params import SCENARIOS, Params, macro_path
 from .simulate import simulate, summarise
 from .solver import solve
@@ -19,4 +20,5 @@ __all__ = [
     "simulate",
     "solve",
     "summarise",
+    "validate",
 ]

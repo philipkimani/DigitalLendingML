@@ -1,0 +1,22 @@
+# Azure ML data asset: the synthetic customer book the nightly job reads.
+#
+# A *data asset* is a named, versioned pointer to a file in the workspace's storage. Jobs refer to it as
+# azureml:customer-book:<version>, so every run records exactly which data it used (reproducibility).
+# Versions are immutable: new data means a new version, never an overwrite.
+#
+# Register (uploads the local file to the workspace's default blob datastore):
+#   az ml data create -f azureml/data/customer-book.yml -g rg-digitallending-dev -w mlw-digitallending-dev
+#
+# Rebuild the file first, byte for byte, from the tags below:
+#   uv run python -m lending.synthetic --n 30000 --seed 42 --out data/raw/book.csv
+$schema: https://azuremlschemas.azureedge.net/latest/data.schema.json
+name: customer-book
+version: "1"
+type: uri_file                      # a single file (uri_folder would be a directory; mltable adds a schema)
+path: ../../data/raw/book.csv       # relative to this YAML file
+description: Synthetic customer book (no real customers), 30,000 rows, shaped like the reference book in docs/data_card.md.
+tags:
+  generator: lending.synthetic
+  n: "30000"
+  seed: "42"
+  md5: 13e4e92d23c83d9755440b178c98305a   # checksum of the uploaded file, to prove a rebuild matches

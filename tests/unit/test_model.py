@@ -1,3 +1,9 @@
+"""Behavioural tests of the model: properties that must hold whatever the exact numbers are.
+
+Each test states an economic rule (e.g. "riskier losses never mean more offers") and checks the
+solver obeys it. Fixtures `book` and `model` come from conftest.py (2,000 seeded customers).
+"""
+
 import dataclasses
 
 import numpy as np
@@ -17,12 +23,14 @@ def live_mask(book, model):
 
 
 def test_transition_rows_are_probabilities(model):
+    # Every row of a transition matrix is "where a customer in this bucket goes": must sum to 1.
     for T in (model.T_hold, model.T_grant):
         assert np.all((T >= 0) & (T <= 1))
         np.testing.assert_allclose(T.sum(1), 1.0)
 
 
 def holds_below_cap(book, model):
+    """Count real decisions (inside the horizon, below the cap) where the policy says hold."""
     pol, _ = solve(book, model, lam=0.0)
     live = np.broadcast_to(live_mask(book, model), pol.shape).copy()
     live[:, :, model.p.max_k :, :] = False
@@ -43,6 +51,7 @@ def test_term_extension_alone_can_justify_a_hold(book, model):
 
 
 def test_higher_lgd_never_increases_offers(book, model):
+    # Monotonicity: losing more on default can only make offers less attractive.
     counts = [solve(book, model.with_(p=model.p.with_(lgd=lgd)))[0].sum() for lgd in (0.5, 0.65, 0.8)]
     assert counts[0] >= counts[1] >= counts[2]
 
@@ -53,12 +62,14 @@ def test_never_offers_at_the_yearly_cap(book, model):
 
 
 def test_chunked_solve_equals_whole_book(book, model):
+    # At a fixed lam customers are independent, so solving in pieces must give the identical policy.
     whole, _ = solve(book, model, lam=0.5)
     parts = np.concatenate([solve(part, model, lam=0.5)[0] for part in book.chunks(300)])
     np.testing.assert_array_equal(whole, parts)
 
 
 def test_chunked_capital_is_deterministic(book, model):
+    # Same seed and chunk size -> same random streams -> same answer (reproducible runs).
     assert capital(book, model, 0.5, S=10, seed=3, chunk=700) == capital(book, model, 0.5, S=10, seed=3, chunk=700)
 
 
@@ -74,5 +85,6 @@ def test_lambda_star_is_feasible_and_tight(book, model):
 
 
 def test_unreachable_budget_raises(book, model):
+    # A zero budget cannot be met by any price in range: fail loudly rather than return a wrong lam.
     with pytest.raises(ValueError):
         find_lambda(book, model.with_(p=model.p.with_(budget=0.0)), S=5, hi=0.01, iters=2)

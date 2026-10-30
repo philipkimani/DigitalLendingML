@@ -1,4 +1,9 @@
-"""Risk buckets, bucket transitions and the calibrated Model every chunk solves against."""
+"""Risk buckets, bucket transitions and the calibrated Model every chunk solves against.
+
+Calibration happens once per book: it estimates the population-level inputs (late rate per bucket,
+how customers move between buckets each cycle). Those are then shared by every chunk, which is why
+chunks can be solved separately and still give the same answer as the whole book.
+"""
 
 from dataclasses import dataclass, field
 
@@ -14,10 +19,12 @@ def bucket(q: np.ndarray) -> np.ndarray:
 
 
 def sigmoid(x):
+    """Log-odds -> probability (inverse of logit)."""
     return 1 / (1 + np.exp(-x))
 
 
 def logit(p):
+    """Probability -> log-odds. Effects can be added on this scale without leaving (0, 1)."""
     return np.log(p / (1 - p))
 
 
@@ -33,24 +40,32 @@ def transitions(book: Book, p: Params, seed: int = 7, sims: int = 20) -> tuple[n
     """Per-cycle bucket transition matrices (hold, grant), by simulating one Beta-Bernoulli update of the book.
 
     Granting lowers reliability slightly through the leverage effect.
+
+    T[i, j] = probability that a customer in bucket i is in bucket j after one cycle. Estimated by
+    simulation: draw each customer's true reliability, draw one repayment, update the Beta belief,
+    re-bucket, and count where everyone lands. Repeated `sims` times to smooth the counts.
     """
     rng = np.random.default_rng(seed)
     q0, r0 = book.ontime, bucket(book.ontime)
     out = []
-    for grant in (0, 1):
+    for grant in (0, 1):  # 0 = hold matrix, 1 = grant matrix
         T = np.zeros((3, 3))
         for _ in range(sims):
-            a, b = p.n0 * q0, p.n0 * (1 - q0)
-            q = rng.beta(a, b) * (1 - p.gamma * (1 - q0) * grant)
-            ok = rng.random(len(q0)) < q
-            np.add.at(T, (r0, bucket((a + ok) / (a + b + 1))), 1)
-        out.append(T / T.sum(1, keepdims=True))
+            a, b = p.n0 * q0, p.n0 * (1 - q0)  # Beta prior worth n0 past loans
+            q = rng.beta(a, b) * (1 - p.gamma * (1 - q0) * grant)  # true reliability; lower if granted
+            ok = rng.random(len(q0)) < q  # one repayment: on time or not
+            np.add.at(T, (r0, bucket((a + ok) / (a + b + 1))), 1)  # count from-bucket -> new bucket
+        out.append(T / T.sum(1, keepdims=True))  # counts -> probabilities (each row sums to 1)
     return out[0], out[1]
 
 
 @dataclass(frozen=True, eq=False)
 class Model:
-    """Population-level inputs shared by every customer: parameters, macro path, late rates, transitions."""
+    """Population-level inputs shared by every customer: parameters, macro path, late rates, transitions.
+
+    Frozen (immutable): a different parameter set or scenario is a new Model via with_(), never an edit,
+    so a run can always say exactly which inputs it used.
+    """
 
     p: Params
     macro: Macro

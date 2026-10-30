@@ -1,11 +1,16 @@
-"""The customer book: one array per attribute, sliceable into chunks for million-customer runs."""
+"""The customer book: one array per attribute, sliceable into chunks for million-customer runs.
+
+Storing columns as numpy arrays (not a DataFrame) is what lets the solver and simulator compute for
+every customer at once. from_frame is the single door data comes in through, so the contract is checked
+there, and derived per-customer inputs (first window, term extension, acceptance prior) are made there.
+"""
 
 from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
 
-COLUMNS = ("customer_id", "loan_amount", "days_since_last_loan", "ontime_pct", "n_increases")
+from .contract import validate
 
 
 @dataclass(frozen=True, eq=False)
@@ -20,9 +25,9 @@ class Book:
 
     @classmethod
     def from_frame(cls, df: pd.DataFrame, cycle: int = 60) -> "Book":
-        missing = set(COLUMNS) - set(df.columns)
-        if missing:
-            raise ValueError(f"book is missing columns: {sorted(missing)}")
+        # Trust boundary: every book passes the data contract (types, ranges, unique ids,
+        # all buckets present) before any maths runs. Raises with every failed rule listed.
+        df = validate(df)
         loan = df.loan_amount.to_numpy(float)
         n = df.n_increases.to_numpy(int)
         return cls(
@@ -39,6 +44,7 @@ class Book:
         return len(self.loan)
 
     def __getitem__(self, sl: slice) -> "Book":
+        # Slicing a Book slices every array the same way, giving a smaller Book (used for chunks).
         return Book(**{k: v[sl] for k, v in self.__dict__.items()})
 
     def chunks(self, size: int | None):

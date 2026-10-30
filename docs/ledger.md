@@ -174,3 +174,125 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Duplicate tool environments:** the upstream ruff hook installs its own copy of ruff, so pre-commit was downloading ruff a second time. **Fix:** ruff and mypy hooks run from the project environment (`repo: local`, `uv run ...`). `uv.lock` is the single source of truth for tool versions; the full hook run now takes ~9 s.
 - **Secret scan:** full-history scan (`gitleaks git .`) flagged `infra/main.bicep` line 202, `kvSecretsUserRole = '4633458b-…'`. Reviewed: this is the **built-in Azure role definition id** for "Key Vault Secrets User", public and identical in every tenant; it grants nothing by itself. Recorded as a documented exception: inline `gitleaks:allow` comment (current and future commits) plus the exact finding fingerprint in `.gitleaksignore` (history). Re-scan: no leaks in history or tracked files (the only other hits were inside the gitignored `.venv`).
 - **Concept:** treat a scanner finding as evidence to review, not noise to mute. Exceptions are narrow (one fingerprint) and justified in the file.
+
+### 23. Microsoft agent tooling for Claude Code ✅
+- **What:** two official Microsoft plugins installed at user level (not part of the repo):
+  - `azure@claude-plugins-official` (Microsoft's Azure Skills plugin): Azure skills (prepare, validate, deploy, quotas, cost, diagnostics, Foundry), plus the **Azure MCP Server** (`npx @azure/mcp`), which runs as the signed-in `az` user.
+  - `microsoft-docs@microsoft-docs-marketplace` (Microsoft Learn MCP): searches and fetches current learn.microsoft.com pages and code samples.
+- **Why:** check SKUs, quota, API versions and YAML schemas against live Azure and current docs before writing infra or job specs, instead of relying on memory (the DS3_v2 quota slip in entry 8 is the kind of error this catches).
+- **First start:** the Azure MCP server timed out (30 s), because its first start downloads the package. Once downloaded, it starts in ~4 s. Reconnect with `/mcp` or a restart.
+- **Safety:** the Azure MCP server can create and delete resources as the user. Tool approval prompts stay on; any Azure change is still proposed first.
+- **Check:** a Learn search for the Azure ML CLI v2 environment/command-job YAML schema returned the official reference pages.
+
+### 24. Agent guardrails (private `.claude/settings.json`) ✅
+- **What:** project-level Claude Code settings, gitignored (local working preferences, not part of the deliverable).
+  - **Ask first:** any mutating `az` command (`create`, `delete`, `update`, `set`, `assign`, `start`, `stop`, `purge`, `build`), including `az deployment group create` and `az ml job create`.
+  - **Blocked outright:** `az group delete`, `git push --force` / `-f`.
+  - **Allowed without asking:** `uv run pytest`, `uv run ruff check`, `uv run mypy`, and read-only `az ... show` / `list` / `what-if`.
+  - **Hook:** after any file edit, `.py` files are formatted with `uv run ruff format`, so changes match the pre-commit checks before a commit.
+- **Gotcha found while testing the hook:** `jq` on Windows writes CRLF line endings. The trailing `\r` broke both the `*.py` match and the file path (`os error 123`). Fixed by piping through `tr -d '\r'`.
+- **Concept:** guardrails belong in configuration that the tool enforces, not in memory or good intentions. Rules are evaluated deny → ask → allow, so a deny can't be overridden by a broader allow.
+
+### 25. Data card, assumptions log, model card (draft) ✅
+- **What:** `docs/data_card.md`, `docs/assumptions.md`, `docs/model_card.md`.
+- **Why:** write down the data contract and every assumption *before* generating synthetic data, so the generator is built to a spec and every number in the model has a stated source and a plan for replacing it.
+- **Data card:** the five input columns with types, allowed ranges and meaning; the reference book's profile, which the generator should reproduce by default. Each numeric column is close to uniform; buckets are 25/50/25 prime/near-prime/subprime; increase counts are only 0 or 3–5. It also lists the planned Postgres tables.
+- **Assumptions log:** every parameter with code name, value, source, sensitivity and how to replace it with an estimate. Loss given default and churn after a refusal matter most.
+- **Model card:** purpose and out-of-scope uses, method, results, the evaluation evidence (parity and unit tests), limitations (term-extension behaviour, year-end edge, retrospective acceptance, scale) and governance.
+- **Concept:** a data card is the contract between whoever produces the data and the model that reads it. A model card states what the model is for, what it was tested on, and where it should not be trusted.
+
+### 26. Data contract, synthetic generator, exploration notebook ✅
+- **Dependencies:** `pandera` (runtime: the contract runs whenever data enters the model); `matplotlib`, `ipykernel`, `nbclient` (dev only, for notebooks). Lock updated by `uv add`.
+- **Data contract** `src/lending/contract.py`: a pandera schema for the five book columns (types, ranges, no nulls, unique ids) plus a whole-table rule that every risk bucket has customers. `Book.from_frame` now validates every input, so bad data fails at the door with every broken rule listed (`lazy=True`).
+- **Generator** `src/lending/synthetic.py`: `generate(n, seed)` draws each field independently (the reference fields are uncorrelated), reproduces the data-card profile (25/50/25 buckets; increases 0 or 3–5) and validates its own output. CLI: `uv run python -m lending.synthetic --n 30000 --seed 42 --out data/raw/book.csv` (output is gitignored).
+- **Tests** `tests/unit/test_data.py` (10 new, 19 total, all pass): same seed gives same data; profile matches; each contract rule rejects the input it targets.
+- **Notebook** `notebooks/01_eda.ipynb`: generate → distributions → buckets, late rates, transition matrices → one unconstrained solve and the offer map by bucket and loan size. A markdown note explains every cell. It was executed end to end to verify it, and saved without outputs so diffs stay readable.
+- **Not added:** local MLflow. Azure ML provides MLflow tracking, which the job step will use, so a local server would be a duplicate.
+- **Concept:** validate at trust boundaries, not everywhere. One contract, enforced at the single entry point every dataset passes through.
+
+### 27. Explanatory notes across the model code ✅
+- **What:** a concept-level docstring at the top of each module, plus notes on each block of code. Covers `params`, `book`, `states`, `solver` (backward induction, hold/grant/offer values, terminal value), `simulate` (paths, Bayesian re-bucketing, cash flows), `capital` (shadow price, bisection) and the model tests (the economic rule each test checks).
+- **Why:** the code doubles as study material; each block should say what it does and why.
+- **Check that behaviour is unchanged:** the code of all 7 files was compared before and after with comments and docstrings ignored (Python AST): identical. Lint, types and all 19 tests pass.
+- **Concept:** comments explain *why* and the concept behind the code; the code itself shows *how*. Comparing ASTs proves an edit was documentation-only.
+
+### 28. PoC step 1: synthetic book registered as an Azure ML data asset ✅
+- **What:** `customer-book:1`, type `uri_file`, defined in `azureml/data/customer-book.yml` and registered with
+  `az ml data create -f azureml/data/customer-book.yml -g rg-digitallending-dev -w mlw-digitallending-dev`.
+- **Where it lives:** the workspace's default datastore `workspaceblobstore` (a container in the workspace storage account), under `LocalUpload/<hash>/book.csv`. The asset is a named, versioned pointer to that blob; jobs will reference `azureml:customer-book:1`.
+- **Reproducibility evidence:** tags record `generator`, `n`, `seed` and `md5`. Local file, the blob's stored `Content-MD5`, and a fresh rebuild from the tags all hash to the same MD5.
+- **Cost:** ~750 KB of blob storage (fractions of a cent a month). No compute.
+- **Gotchas:**
+  - The CLI wasn't on this session's PATH. The system PATH had it, but the running process had started with a stale copy. Stopgap: reload PATH from the registry per command. Fix: restart the tool.
+  - `az ml data` has no `download` command in this extension version. Verified through the storage layer instead (`az storage blob show` → `contentMd5`).
+  - That check used `--auth-mode key` (storage account keys). **Production fix:** Entra auth (`--auth-mode login` with *Storage Blob Data Reader*) and shared-key access disabled on the account.
+- **Concept:** datastore = connection to storage; data asset = versioned, immutable reference to data in it. New data means a new version, never an overwrite.
+
+### 29. Session restart checks ✅
+- **What:** after restarting the tool, checked that the Azure CLI works without the PATH stopgap, and whether the Azure MCP server connects.
+- **How:** `az account show -o table` in a plain shell.
+- **Result:** the CLI works; the stale PATH was fixed by the restart, so the stopgap is retired. The Azure MCP server timed out again on start (30 s connect timeout). Two other plugin servers timed out too, so this looks like slow startup rather than an Azure problem. Decision: use the `az` CLI and `psql` for all Azure work; the MCP server is optional.
+- **Concept:** fix the cause (a process started before the install inherits an old environment), then remove the workaround so it doesn't linger.
+
+### 30. PoC step 2: Postgres schema and least-privilege role ✅
+- **What:** `db/migrations/001_init.sql` and `db/bootstrap_identity.sql`.
+- **Tables:** `events` (partner `event_id` primary key: idempotent ingest), `customer_state` (same ranges as the data contract), `parameter_sets` (one column per model parameter with bounds as CHECK constraints; a maker-checker constraint requires a checker who is not the maker; at most one `active` row), `runs` (one nightly solve; at most one `published`), `decisions` (offer/hold per customer per run; every row carries `param_version` and `model_version`, and a composite foreign key makes them match the run), `audit` (written by trigger on `parameter_sets` and `runs`), `schema_migrations`.
+- **Role:** `lending_app` group role holds the grants: read `customer_state` and `parameter_sets`; insert `events`; insert and update `runs`; insert `decisions`. No update or delete on events, no write on parameters, nothing on audit. The managed identity becomes a member through `pgaadauth_create_principal` + `GRANT lending_app`.
+- **Why:** the rules that keep decisions trustworthy (parameter bounds, maker-checker, reproducibility, append-only events) are enforced by the database, so a bug in any client can't break them.
+- **Known limit:** `events` is unpartitioned. At production volume, partition by month; that moves idempotency into a separate key table, because a partitioned table's primary key must include the partition column.
+- **Concept:** a partial unique index (`ON t ((true)) WHERE status = 'active'`) enforces "at most one row in this state". Publishing a run is then a status flip in one transaction, so readers never see a half-written run.
+- **Applied:**
+  1. Firewall rule `dev-client` for one IP (the developer machine), so `psql` can reach the server: `az postgres flexible-server firewall-rule create -g rg-digitallending-dev --server-name <server> --name dev-client --start-ip-address <ip> --end-ip-address <ip>`. **Dev stopgap**; production uses private networking and this rule is deleted.
+  2. `001_init.sql` to `lending`, then `bootstrap_identity.sql` to `postgres`, as the Entra admin. The password is a short-lived Entra token (`az account get-access-token --resource-type oss-rdbms`), set only in the shell process.
+- **Verified** with `tests/db/check_001.sql` (runs in a transaction and rolls back; stops on the first failure). The database rejected: `lgd = 65`, `kappa = 0`, a negative budget, an approval with no checker, a maker approving their own set, a second active set, a second published run, a `model_version` that is not a git SHA, a decision whose versions differ from its run, an action other than offer/hold, a loan above 5,000. A repeated `event_id` was ignored. Audit rows were written by the triggers. The managed identity is in `lending_app`, has no admin attributes, and has exactly the intended table privileges (18 checked).
+- **Gotcha:** on `firewall-rule` commands the az CLI takes the server as `--server-name`; `--name` there is the rule name.
+- **Concept:** test the database's behaviour, not its DDL: try what must be refused and assert it is refused, inside a transaction that rolls back.
+
+### 31. Maker-checker enforced by the database (migration 002) ✅
+- **Gap found in 001:** `maker` and `checker` were client-supplied text, so any caller with write access could type another person's name as checker and approve their own parameter set. The constraint compared two strings the client controlled.
+- **What:** `db/migrations/002_maker_checker.sql`. A `BEFORE INSERT OR UPDATE` trigger on `parameter_sets`:
+  - sets `maker` from `session_user` (the authenticated login; `SET ROLE` can't change it) and drops any client-supplied checker;
+  - new sets start as `draft` or `proposed` only;
+  - parameter values are immutable after insert (a change is a new version);
+  - allowed transitions: draft → proposed (maker); proposed → approved/rejected (member of `lending_checker`, not the maker; the trigger records `checker` and `checked_at`); approved → active and active → retired (`lending_checker`).
+  - New group role `lending_checker`: read parameters and audit, update `status` only.
+- **How:** applied with `psql ... -v ON_ERROR_STOP=1 -f db/migrations/002_maker_checker.sql` as the Entra admin.
+- **Verified:** `tests/db/check_001.sql` was renamed to `tests/db/check_schema.sql` and extended. It was run before 002 and **failed** at the maker check (the gap was real), then run after 002 and passed. New rejections: a set inserted as approved or as active, the maker approving their own set, editing a value after insert. The 001 constraints are also tested with the trigger disabled inside the rolled-back transaction, to show they still back it up.
+- **Concept:** never trust identity a client asserts; take it from the authenticated session. Run the test before the fix: a test that never failed hasn't proven anything.
+
+### 32. First active parameter set, through real maker-checker ✅
+- **What:** the base-case parameters (the `lending.params.Params` defaults) are now the active set in `parameter_sets`, approved by a second person.
+- **Checker account:** a dev-only Entra user, created with a generated password that is stored only in the gitignored `.env` and was never printed. It was mapped into Postgres with `db/bootstrap_identity.sql`, which now takes `-v role=` so the same script serves `lending_app` (workloads) and `lending_checker` (approvers).
+- **Flow:**
+  1. The maker (Entra admin) inserted the set as `proposed`. The trigger recorded the maker from the login.
+  2. The checker, signed in with its own token, moved it proposed → approved → active in one transaction. The trigger recorded checker and time.
+  3. The audit table shows the insert by the maker and both status changes by the checker. One active set exists.
+  - Honest note: the checker's commands were run by the assistant at the developer's request, using the checker's own sign-in.
+- **Its version number is 21, not 1:** the rolled-back test runs used identity values, and sequences don't roll back. That's expected; version numbers are unique, not gap-free.
+- **Gotchas:**
+  - Device-code sign-in was blocked by Entra **security defaults** (error 530035), which treat that flow as risky. Kept security defaults on and used the browser flow instead.
+  - Signing in a second account on the same machine kept silently reusing the existing Windows/browser session (even in an InPrivate window), so the checker profile kept getting the admin account. Fix: a separate `AZURE_CONFIG_DIR` for the checker, the Windows broker turned off for that profile only (`core.enable_broker_on_windows=false`), and the sign-in URL opened with `prompt=login` so Entra must ask for credentials. Always check `az account show` after a login; the exit code was 0 every time.
+  - Postgres truncates role names to 63 characters, so a long guest UPN appears shortened in `maker`/`actor`. It's consistent, so comparisons hold; prefer short UPNs for human approvers.
+- **Concept:** separation of duties is only real when the system can tell the two people apart. Here identity comes from Entra tokens and is recorded by the database, not typed by a client.
+
+### 33. PoC step 3 (part 1): nightly job built and dry-run against the real database ✅
+- **Dependencies:** `psycopg[binary]` (Postgres client) and `azure-identity` (Entra tokens) in a new `jobs` dependency group, so the model package itself stays dependency-light. `uv add --group jobs "psycopg[binary]" azure-identity`.
+- **Input loaded:** the synthetic book, rebuilt from seed 42 and checked against the data asset's MD5, copied into `customer_state` as the Entra admin (`psql \copy ... FROM 'data/raw/book.csv' WITH (FORMAT csv, HEADER true)`): 30,000 rows. In production this table is maintained from partner events; this is a documented dev seed load.
+- **Code:**
+  - `src/lending/decisions.py`: `params_from_row` (a `parameter_sets` row → `Params`) and `first_window` (the policy at each customer's next window: current bucket, k = 0, h = 0).
+  - `tests/unit/test_decisions.py`: the DB row round-trips to `Params` exactly (catches schema/code drift); `first_window` reads exactly the customer's own state (hand-built policies that say offer only there, and the inverse). 21 tests pass; ruff and mypy clean.
+  - `jobs/nightly.py`:
+    1. reads the active set and `customer_state` in a short read transaction;
+    2. solves outside any transaction (calibrate → bisect λ\* → solve in chunks);
+    3. writes the run, streams decisions with `COPY` and publishes in ONE transaction.
+
+    Sign-in is an Entra token from `DefaultAzureCredential` (managed identity on Azure ML, the az CLI locally). `--dry-run` rolls step 3 back.
+- **Dry run** (local, as the admin, against the real database), `uv run --group jobs python jobs/nightly.py --model-version <sha> --dry-run`, took 113 s:
+  - λ\* = 0.646; capital used 249,840 of the 250,000 budget (within budget, as bisection guarantees);
+  - 5,569 offers of 30,000;
+  - offer rate by bucket: prime 55.5%, near-prime 8.3%, subprime 2.2%;
+  - the data fingerprint MD5 equals the registered data asset's MD5, so the table holds exactly the asset's rows;
+  - afterwards: 0 runs, 0 decisions, 0 run audit rows (the rollback left nothing).
+- **Not covered by the dry run:** the managed identity's grants (it ran as the admin), the Azure ML environment and compute, network access from Azure, and MLflow logging. The first cloud run covers those.
+- **Deferred:** Q-values and reason codes in `decisions` (they need the solver to return Q, which touches parity-checked code; needed for the API's explanations); a schedule (billable, needs approval).
+- **Concept:** keep long computation outside the write transaction, and make the write transaction all-or-nothing. Readers see the old run until the commit and the full new run after it.
