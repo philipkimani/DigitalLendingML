@@ -3,7 +3,6 @@
 //   az deployment group create -g rg-digitallending-dev -f infra/main.bicep \
 //     -p adminObjectId=<entra object id> adminName=<registered admin name> \
 //        apiImage=<image the API runs now: az containerapp show ... --query properties.template.containers[0].image> \
-//        allowedIp=<client IP allowed to call the API> \
 //        githubRepo=<owner>@<owner id>/<repo>@<repo id>   (gh api repos/<owner>/<repo> --jq '"\(.owner.login)@\(.owner.id)/\(.name)@\(.id)"') \
 //        apiAudience=<client id of the lending-api app, an output of infra/entra.bicep>
 // No secrets: Postgres is Entra-only, services use the user-assigned managed identity.
@@ -20,8 +19,6 @@ param amlVmSize string = 'Standard_DS2_v2' // 2 vCPU; 2 nodes fit the default 4-
 // No default: CI rolls out new images, so a deploy must pass the image running now or it would roll back the API.
 @description('API image, e.g. <registry>.azurecr.io/lending-api:<git sha>.')
 param apiImage string
-@description('Dev stopgap: the only client IP allowed to call the API. Production: Entra auth + APIM, no IP list.')
-param allowedIp string
 // GitHub puts immutable ids in the OIDC subject, so a renamed, deleted or re-created repo of the same name gets no access.
 @description('Repository whose main-branch workflow may deploy, as GitHub\'s token subject names it: <owner>@<owner id>/<repo>@<repo id>.')
 param githubRepo string
@@ -212,7 +209,9 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
         external: true
         targetPort: 8000 // the API runs as a non-root user, so it listens above 1024
         transport: 'auto'
-        ipSecurityRestrictions: [ { name: 'dev-client', ipAddressRange: '${allowedIp}/32', action: 'Allow' } ] // dev stopgap
+        // No IP allow-list: every endpoint except /healthz needs an Entra token with an app role (api/main.py,
+        // infra/entra.bicep). Rate limiting and a gateway come with APIM.
+        ipSecurityRestrictions: []
       }
       registries: [ { server: acr.properties.loginServer, identity: uami.id } ]
     }

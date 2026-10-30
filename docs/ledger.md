@@ -449,3 +449,9 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 
 ### 47. README rewritten around the model and its research results
 - **What:** the README now explains the model (risk states, uptake, the decision equations, the Lagrangian decomposition, the richer validation simulator), the research results on the 30,000-customer reference replay (strategy comparison, the shape of the optimal policy, behaviour, macro scenarios, sensitivity, limitations), the production design, the current architecture including auth and CI, an updated quick start (`solve` returns three values) and layout.
+
+### 48. Entra auth, step 4: the API's IP allow-list removed
+- **What:** `infra/main.bicep` no longer has the `allowedIp` parameter; the Container App ingress has `ipSecurityRestrictions: []`. Access to the API is decided by identity: every endpoint except `/healthz` needs an Entra token carrying the endpoint's app role.
+- **How:** what-if showed one real change (the `dev-client` restriction removed) plus known noise; `az deployment group create` with the running image (unchanged). `scripts/allow-my-ip.ps1` now only maintains the Postgres `dev-client` rule (still a stopgap until private networking); `docs/api.md` updated.
+- **Verified:** the ingress lists no restrictions; live, `/healthz` 200, `/decisions/63` and `POST /events` without a token 401, `/decisions/63` and `/decisions/2` with the admin's token 200 (run 19). Not tested: a request from a different network address (the allow-list's absence is confirmed from the deployed configuration).
+- **Concept:** network allow-lists answer "where from?", tokens answer "who, and allowed to do what?". With the second in place, the first only added fragility (it broke twice in a day on a dynamic IP).

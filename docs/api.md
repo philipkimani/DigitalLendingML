@@ -30,7 +30,7 @@ curl -H "Authorization: Bearer $token" https://<api host>/decisions/63
 
 Roles are assigned in `infra/entra.bicep` (users for testing, apps and managed identities as callers). Only assigned principals can obtain a token at all. Services call with a managed identity; there are no client secrets.
 
-**Dev only:** an IP allow-list is still in front of the API while authentication is rolled out; it is removed once token checks are verified live.
+There is no IP allow-list: identity, not network address, decides access.
 
 ---
 
