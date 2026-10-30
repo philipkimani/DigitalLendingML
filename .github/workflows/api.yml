@@ -1,0 +1,64 @@
+# Decision API: test, build the image, push it to ACR, roll it out to the Container App.
+#
+# Runs on pushes to main that touch the API or its dependencies, or by hand (Actions → api → Run workflow).
+# Azure sign-in is OIDC: GitHub issues a short-lived token that Azure trusts for this repo's main branch only
+# (federated credential in infra/main.bicep). No passwords or keys are stored anywhere.
+# Repository secrets: AZURE_CLIENT_ID (deploy identity), AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID.
+# Repository variable: ACR_NAME.
+# Infrastructure changes are not made here: they go through infra/main.bicep with a reviewed what-if.
+name: api
+
+on:
+  push:
+    branches: [main]
+    paths: ["api/**", "pyproject.toml", "uv.lock", ".github/workflows/api.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # lets the job request the OIDC token; nothing else
+
+concurrency:
+  group: api-deploy
+  cancel-in-progress: false # never interrupt a rollout half way
+
+env:
+  RESOURCE_GROUP: rg-digitallending-dev
+  CONTAINER_APP: ca-digitallending-dev-api
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.17"
+      - run: uv sync --frozen
+      - run: uv run pytest tests/unit -q
+
+  deploy:
+    needs: test # a failing test stops the rollout
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push the image (tag = commit SHA, so every revision traces to its code)
+        run: |
+          IMAGE="${{ vars.ACR_NAME }}.azurecr.io/lending-api:${{ github.sha }}"
+          az acr login -n "${{ vars.ACR_NAME }}"
+          docker build -f api/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Roll out a new revision
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az containerapp update -g "$RESOURCE_GROUP" -n "$CONTAINER_APP" --image "$IMAGE" \
+            --query "properties.latestRevisionName" -o tsv

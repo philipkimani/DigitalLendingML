@@ -1,6 +1,9 @@
 // DigitalLendingML dev environment. Deploy into an existing resource group:
+//   az deployment group what-if -g rg-digitallending-dev -f infra/main.bicep -p <same parameters>   (review first)
 //   az deployment group create -g rg-digitallending-dev -f infra/main.bicep \
-//     -p adminObjectId=<entra object id> adminName=<upn>
+//     -p adminObjectId=<entra object id> adminName=<registered admin name> \
+//        apiImage=<image the API runs now: az containerapp show ... --query properties.template.containers[0].image> \
+//        allowedIp=<client IP allowed to call the API>
 // No secrets: Postgres is Entra-only, services use the user-assigned managed identity.
 
 param location string = resourceGroup().location
@@ -12,7 +15,13 @@ param adminObjectId string
 param adminName string
 
 param amlVmSize string = 'Standard_DS2_v2' // 2 vCPU; 2 nodes fit the default 4-core regional quota
-param apiImage string = 'mcr.microsoft.com/k8se/quickstart:latest' // ponytail: placeholder until the API image exists in ACR
+// No default: CI rolls out new images, so a deploy must pass the image running now or it would roll back the API.
+@description('API image, e.g. <registry>.azurecr.io/lending-api:<git sha>.')
+param apiImage string
+@description('Dev stopgap: the only client IP allowed to call the API. Production: Entra auth + APIM, no IP list.')
+param allowedIp string
+@description('GitHub repository whose main-branch workflow may deploy (OIDC federated credential subject).')
+param githubRepo string = 'philipkimani/DigitalLendingML'
 
 var name = 'digitallending-${env}'
 var suffix = take(uniqueString(resourceGroup().id), 6)
@@ -21,6 +30,24 @@ var tenantId = subscription().tenantId
 resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: 'id-${name}'
   location: location
+}
+
+// CI/CD identity, separate from the runtime one: the pipeline can push images and roll out the API, but can't
+// read decisions; the API's identity can't deploy. GitHub signs in with OIDC (no stored secret), and only
+// workflow runs on this repository's main branch are trusted (forks and pull requests get no token).
+resource deployId 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-${name}-deploy'
+  location: location
+}
+
+resource deployFic 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
+  parent: deployId
+  name: 'github-main'
+  properties: {
+    issuer: 'https://token.actions.githubusercontent.com'
+    subject: 'repo:${githubRepo}:ref:refs/heads/main'
+    audiences: [ 'api://AzureADTokenExchange' ]
+  }
 }
 
 resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -176,7 +203,12 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: cae.id
     configuration: {
-      ingress: { external: true, targetPort: 80, transport: 'auto' }
+      ingress: {
+        external: true
+        targetPort: 8000 // the API runs as a non-root user, so it listens above 1024
+        transport: 'auto'
+        ipSecurityRestrictions: [ { name: 'dev-client', ipAddressRange: '${allowedIp}/32', action: 'Allow' } ] // dev stopgap
+      }
       registries: [ { server: acr.properties.loginServer, identity: uami.id } ]
     }
     template: {
@@ -188,6 +220,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           env: [
             { name: 'PGHOST', value: psql.properties.fullyQualifiedDomainName }
             { name: 'PGDATABASE', value: db.name }
+            { name: 'PGUSER', value: uami.name } // its Postgres role (db/bootstrap_identity.sql)
             { name: 'AZURE_CLIENT_ID', value: uami.properties.clientId }
           ]
         }
@@ -221,9 +254,34 @@ resource kvSecrets 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// CI/CD identity: push images to this registry, and update this one Container App (not the resource group).
+var acrPushRole = '8311e382-0749-4cb8-b61a-304f252e45ec' // gitleaks:allow built-in role id (public, same in every tenant)
+var contributorRole = 'b24988ac-6180-42a0-ab88-20f7382dd24c' // gitleaks:allow built-in role id (public, same in every tenant)
+
+resource deployAcrPush 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: acr
+  name: guid(acr.id, deployId.id, acrPushRole)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPushRole)
+    principalId: deployId.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource deployApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: api
+  name: guid(api.id, deployId.id, contributorRole)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', contributorRole)
+    principalId: deployId.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // The identity gets a least-privilege Postgres role via a SQL migration (pgaadauth_create_principal), not admin.
 output identityName string = uami.name
 output identityClientId string = uami.properties.clientId
+output deployClientId string = deployId.properties.clientId // GitHub secret AZURE_CLIENT_ID
 output postgresHost string = psql.properties.fullyQualifiedDomainName
 output apiUrl string = 'https://${api.properties.configuration.ingress.fqdn}'
 output mlWorkspace string = mlw.name
