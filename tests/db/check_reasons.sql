@@ -24,9 +24,14 @@ LANGUAGE sql AS $$
                   cid, action, coalesce(qh::text, 'NULL'), coalesce(qo::text, 'NULL'), reason)
 $$;
 
+-- Its own draft parameter set and published run, so this works on an empty database (CI) and a live one.
+INSERT INTO parameter_sets (note, n0, kappa, early, early_fee, gamma, step, lgd, m, fee, c0, c_deny,
+                            k_prime, k_near, k_sub, budget, disc, fixed_cost, fatigue, horizon, cycle, max_k)
+VALUES ('check', 20, 0.25, 0.30, 0.8, 0.10, 0.15, 0.65, 0.04, 40, 0.02, 0.06,
+        0.08, 0.12, 0.20, 250000, 0.19, 0, 0.10, 365, 60, 6);
 UPDATE runs SET status = 'superseded' WHERE status = 'published';
 INSERT INTO runs (param_version, model_version, data_version, status, published_at)
-SELECT param_version, 'a4b3d3a', 'check', 'published', now() FROM parameter_sets WHERE status = 'active';
+SELECT max(param_version), 'a4b3d3a', 'check', 'published', now() FROM parameter_sets;
 
 -- Accepted: each code with its action, and the old shape (no reason, no Q-values).
 DO $$ BEGIN

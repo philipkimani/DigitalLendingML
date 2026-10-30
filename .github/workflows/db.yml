@@ -1,0 +1,48 @@
+# Database: apply every migration to an empty PostgreSQL 16 and run every behavioural check in tests/db.
+#
+# Catches SQL mistakes (constraints, triggers, functions, grants) before anything reaches Azure. The checks
+# run again by hand against the dev database, where they meet live data.
+# The server is a throwaway container that exists only for this job: the password below is not a secret.
+# Migrations run as a non-superuser with CREATEROLE, like the Entra admin on Azure, so privilege rules apply.
+# db/bootstrap_identity.sql needs Azure's pgaadauth extension; here a plain login stands in for the identity.
+name: db
+
+on:
+  push:
+    branches: [main]
+    paths: ["db/**", "tests/db/**", ".github/workflows/db.yml"]
+  pull_request:
+    paths: ["db/**", "tests/db/**", ".github/workflows/db.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate-and-check:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 15
+    env:
+      PGHOST: localhost
+      PGDATABASE: lending
+      PGUSER: ci_admin
+      PGPASSWORD: ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Admin role and database (not a superuser, as on Azure)
+        env: { PGUSER: postgres, PGDATABASE: postgres }
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ci_admin LOGIN CREATEROLE PASSWORD 'ci'"
+          psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE lending OWNER ci_admin"
+      - name: Migrations, in order
+        run: for f in db/migrations/*.sql; do echo "== $f"; psql -q -v ON_ERROR_STOP=1 -f "$f"; done
+      - name: Stand-in for the managed identity
+        run: psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ci_identity LOGIN" -c "GRANT lending_app TO ci_identity"
+      - name: Behavioural checks
+        run: for f in tests/db/*.sql; do echo "== $f"; psql -q -o /dev/null -v ON_ERROR_STOP=1 -v identity=ci_identity -f "$f"; done
