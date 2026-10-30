@@ -341,3 +341,17 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Live API:** `/decisions/63` and `/decisions/193` (offer in run 8) now return hold; `/decisions/1` still offer, `/decisions/2` still hold; every response carries run 9, parameter version 22 and the new model SHA. No API change or redeploy was needed: it always reads the published run.
 - **Rollback path:** a retired set can't be re-activated (history isn't rewritten). Going back to 250,000 means proposing a new set with set 21's values and approving it the same way.
 - **Concept:** the governed path is the only path. A parameter change reaches customers only through maker → independent checker → reproducible run → atomic publish, and each step is recorded by the database under the identity that did it.
+
+### 37. Event ingest: `POST /events`, idempotent on the partner's event id (code + database check; not yet deployed)
+- **What:** the decision API now also accepts partner events (`disburse`, `repay`, `miss`, `offer`, `accept`, `decline`) in batches of 1 to 1,000. No migration: the `events` table, its primary key on `event_id` and the `lending_app` grants (SELECT, INSERT only) were already in `001_init`.
+- **Why:** customer state should come from what customers actually do, not from the static synthetic book. Ingest is the first half; building `customer_state` from events is the next step.
+- **How it behaves** (`api/main.py`):
+  - one statement per batch, `INSERT ... SELECT FROM unnest(...) ON CONFLICT (event_id) DO NOTHING RETURNING event_id`, inside one transaction;
+  - ids that already existed are re-read and compared field by field: identical → counted as `duplicate` (a safe retry); different content → **409** listing those ids, and the whole batch is rolled back, so a partner correction is never silently dropped (a correction needs a new event id);
+  - rejected with 422 before the database: unknown type or field, empty or oversized batch, a timestamp without a time zone, a timestamp more than 5 minutes in the future, the same id twice in one batch;
+  - `payload` stays free-form until state derivation defines what each event type must carry.
+- **Tests:** `tests/unit/test_events.py` (5 tests, in-memory fake store using the same conflict rule): retry stores nothing twice, the same instant in another time zone is a duplicate, a changed body is 409 and stores nothing, malformed batches are 422. 30 unit tests pass; ruff and mypy clean.
+- **Database check:** the insert, retry and conflict SQL run against the dev database as the Entra admin inside a transaction that was rolled back: 3 inserted, a retry inserted 0 and found 3, identical retry → no conflicts, changed payload → exactly that id flagged, 0 rows left afterwards. This confirmed the array types (`jsonb[]`, `timestamptz[]`) and that a jsonb round trip compares equal.
+- **Firewall:** the client's public IP had changed, so the Postgres `dev-client` rule was updated to the new address (`az postgres flexible-server firewall-rule update -g <rg> -s <server> -n dev-client --start-ip-address <ip> --end-ip-address <ip>`). Still a dev stopgap; it is removed when private networking lands. The API's IP allow-list still has the old address and is updated at deploy time through Bicep.
+- **Not yet done:** deploy and live check; caller authentication beyond the IP allow-list (next step, Entra auth).
+- **Concept:** idempotency is a promise about retries, not about duplicates. Same id + same content = no-op; same id + different content is an error to surface, never a write to drop.
