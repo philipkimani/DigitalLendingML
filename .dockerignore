@@ -1,0 +1,7 @@
+# Docker build context allow-list: only what api/Dockerfile copies. Keeps .env, data/, .venv and
+# everything else out of the upload to the registry build.
+*
+!pyproject.toml
+!uv.lock
+!api/
+**/__pycache__/
