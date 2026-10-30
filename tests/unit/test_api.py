@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
-from api.main import app, decision_store
+from api.main import REASONS, app, decision_store
 
 ROW = {
     "customer_id": 1,
@@ -15,15 +15,24 @@ ROW = {
     "param_version": 21,
     "model_version": "2ca2cac",
     "published_at": datetime(2026, 10, 30, 6, 48, tzinfo=UTC),
+    "reason_code": "npv_positive",
+    "q_hold": 812.5,
+    "q_offer": 845.25,
 }
-app.dependency_overrides[decision_store] = lambda: lambda cid: ROW if cid == 1 else None
+OLD_RUN_ROW = ROW | {"customer_id": 3, "reason_code": None, "q_hold": None, "q_offer": None}
+app.dependency_overrides[decision_store] = lambda: lambda cid: {1: ROW, 3: OLD_RUN_ROW}.get(cid)
 client = TestClient(app)  # not used as a context manager, so the lifespan (real pool) never opens
 
 
 def test_known_customer_returns_the_published_decision():
     r = client.get("/decisions/1")
     assert r.status_code == 200
-    assert r.json() | {"published_at": None} == ROW | {"published_at": None}
+    assert r.json() | {"published_at": None} == ROW | {"published_at": None, "reason": REASONS["npv_positive"]}
+
+
+def test_decisions_from_runs_before_reason_codes_still_serve():
+    r = client.get("/decisions/3")
+    assert r.status_code == 200 and r.json()["reason_code"] is None and r.json()["reason"] is None
 
 
 def test_unknown_customer_is_404():

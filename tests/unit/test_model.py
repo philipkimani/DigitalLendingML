@@ -31,7 +31,7 @@ def test_transition_rows_are_probabilities(model):
 
 def holds_below_cap(book, model):
     """Count real decisions (inside the horizon, below the cap) where the policy says hold."""
-    pol, _ = solve(book, model, lam=0.0)
+    pol, *_ = solve(book, model, lam=0.0)
     live = np.broadcast_to(live_mask(book, model), pol.shape).copy()
     live[:, :, model.p.max_k :, :] = False
     return int((live & ~pol).sum())
@@ -57,13 +57,13 @@ def test_higher_lgd_never_increases_offers(book, model):
 
 
 def test_never_offers_at_the_yearly_cap(book, model):
-    pol, _ = solve(book, model)
+    pol, *_ = solve(book, model)
     assert not pol[:, :, model.p.max_k :, :].any()
 
 
 def test_chunked_solve_equals_whole_book(book, model):
     # At a fixed lam customers are independent, so solving in pieces must give the identical policy.
-    whole, _ = solve(book, model, lam=0.5)
+    whole, *_ = solve(book, model, lam=0.5)
     parts = np.concatenate([solve(part, model, lam=0.5)[0] for part in book.chunks(300)])
     np.testing.assert_array_equal(whole, parts)
 

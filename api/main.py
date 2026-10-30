@@ -31,7 +31,8 @@ credential = DefaultAzureCredential()  # caches the token and refreshes it befor
 
 # Index-backed lookup: one published run (partial unique index), then the (run_id, customer_id) primary key.
 DECISION_SQL = """
-    SELECT d.customer_id, d.action, d.run_id, d.param_version, d.model_version, r.published_at
+    SELECT d.customer_id, d.action, d.run_id, d.param_version, d.model_version, r.published_at,
+           d.q_hold, d.q_offer, d.reason_code
     FROM decisions d JOIN runs r ON r.run_id = d.run_id
     WHERE r.status = 'published' AND d.customer_id = %s
 """
@@ -68,6 +69,23 @@ class Decision(BaseModel):
     param_version: int  # approved parameter set it used
     model_version: str  # git SHA of the code it ran
     published_at: datetime
+    # Why (NULL for runs published before reason codes existed):
+    reason_code: Literal["npv_positive", "capital_limit", "risk_return"] | None
+    reason: str | None = None  # the code in plain words, for people
+    q_hold: float | None  # first-window value of holding, present-value USD net of the capital charge
+    q_offer: float | None  # ... and of offering; the decision is whichever is larger
+
+    @model_validator(mode="after")
+    def describe(self) -> "Decision":
+        self.reason = REASONS[self.reason_code] if self.reason_code else None
+        return self
+
+
+REASONS = {
+    "npv_positive": "An increase is expected to add value: margin and fee outweigh the extra risk and capital.",
+    "capital_limit": "An increase would add value, but this cycle's capital budget went where it adds more.",
+    "risk_return": "Expected losses and churn on a larger limit outweigh its margin and fee for now.",
+}
 
 
 # --- Payload contract per event type ---------------------------------------------------------------

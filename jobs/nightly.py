@@ -12,7 +12,8 @@ Steps:
   1. read the active parameter set and the customers' state (short read transaction), either from the
      customer_state table (dev seed) or derived from the event log as of a moment (customer_state_asof,
      migration 003; the run records that moment, so its input can be rebuilt exactly);
-  2. calibrate, find the capital price lambda* by bisection, solve the book in chunks at lambda*;
+  2. calibrate, find the capital price lambda* by bisection, solve the book in chunks at lambda* and at
+     lambda = 0 (the free-capital counterfactual behind each decision's reason code);
   3. write the run and its decisions, then publish it, all in ONE transaction: the API sees the
      previous run until the commit and the complete new run after it, never anything in between.
 --dry-run does everything and rolls back step 3 (nothing is published).
@@ -30,7 +31,7 @@ from psycopg.rows import dict_row
 
 from lending import Book, Model, capital, find_lambda, solve
 from lending.contract import split_valid
-from lending.decisions import first_window, params_from_row
+from lending.decisions import explain, params_from_row
 
 try:  # MLflow is in the Azure ML environment, not needed locally.
     import mlflow
@@ -99,7 +100,11 @@ def main() -> None:
     book = Book.from_frame(df)  # data contract enforced here
     model = Model.calibrate(book, params_from_row(param_row))
     lam = find_lambda(book, model, chunk=args.chunk)
-    decisions = pd.concat([first_window(part, solve(part, model, lam)[0]) for part in book.chunks(args.chunk)])
+    parts = []
+    for part in book.chunks(args.chunk):
+        pol, _, q = solve(part, model, lam)
+        parts.append(explain(part, pol, q, solve(part, model, 0.0)[0]))
+    decisions = pd.concat(parts)
     metrics = {
         "lambda": lam,
         "customers": len(decisions),
@@ -108,6 +113,7 @@ def main() -> None:
         "capital_used": capital(book, model, lam, chunk=args.chunk),
         "capital_budget": model.p.budget,
         **{f"offer_rate_bucket_{b}": float((g.action == "offer").mean()) for b, g in decisions.groupby("bucket")},
+        **{f"reason_{c}": int(n) for c, n in decisions.reason_code.value_counts().items()},
     }
 
     # --- 3. Write and publish (one transaction) ------------------------------------------------------
@@ -119,9 +125,12 @@ def main() -> None:
             (pv, mv, data_version, lam, as_of),
         ).fetchone()[0]
         # COPY streams all rows in one round trip (30k INSERTs would be 30k).
-        with cur.copy("COPY decisions (run_id, customer_id, param_version, model_version, action) FROM STDIN") as cp:
-            for cid, action in zip(decisions.customer_id, decisions.action, strict=True):
-                cp.write_row((run_id, int(cid), pv, mv, action))
+        cols = "run_id, customer_id, param_version, model_version, action, q_hold, q_offer, reason_code"
+        with cur.copy(f"COPY decisions ({cols}) FROM STDIN") as cp:
+            for d in decisions.itertuples(index=False):
+                cp.write_row(
+                    (run_id, int(d.customer_id), pv, mv, d.action, float(d.q_hold), float(d.q_offer), d.reason_code)
+                )
         cur.execute("UPDATE runs SET status = 'superseded' WHERE status = 'published'")
         cur.execute("UPDATE runs SET status = 'published', published_at = now() WHERE run_id = %s", (run_id,))
         if args.dry_run:

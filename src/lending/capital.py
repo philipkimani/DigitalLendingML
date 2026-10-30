@@ -35,7 +35,7 @@ def capital(book: Book, model: Model, lam: float, S: int = 100, seed: int = 11, 
     # Solve and simulate each chunk independently, adding up its capital path by path.
     # strict=True: a mismatch between chunks and seeds raises instead of silently dropping customers.
     for part, sd in zip(parts, chunk_seeds(seed, len(parts)), strict=True):
-        pol, _ = solve(part, model, lam)
+        pol, *_ = solve(part, model, lam)
         total += simulate(part, model, pol, S, sd)["capital"]
     return float(total.mean())
 

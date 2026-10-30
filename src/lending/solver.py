@@ -61,16 +61,20 @@ def terminal(book: Book, model: Model, k: int, lam: float) -> np.ndarray:
     return d * net * (1 - s**6) / (1 - s) - lam * p.weights[None, :] * (Lk - L0)[:, None]
 
 
-def solve(book: Book, model: Model, lam: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
-    """Optimal offer policy and values, both (N, 3, W+1, W+1) indexed [customer, r, k, h].
+def solve(book: Book, model: Model, lam: float = 0.0) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Optimal offer policy and values, both (N, 3, W+1, W+1) indexed [customer, r, k, h], and the action
+    values at the first window.
 
     pol[i, r, k, h] is True where offering beats holding; V is the expected value of being in that state.
+    q[i, r] = (value of holding, value of offering) at the first window (k = 0, h = 0), in present-value
+    dollars net of the capital charge: the two numbers the decision compares, kept to explain it.
     Memory is ~1.6 KB per customer, so callers solve the book in chunks.
     """
     # --- Set-up -------------------------------------------------------------------------------
     p, L0, N, W = model.p, book.loan, len(book), model.p.windows
     V = np.zeros((N, 3, W + 1, W + 1))
     pol = np.zeros((N, 3, W + 1, W + 1), bool)
+    q = np.zeros((N, 3, 2))  # first-window (hold, offer) values, filled at n = 0
     fbar = p.fee * (1 - p.early * (1 - p.early_fee))  # expected fee net of early-repayment rebates
     dh = discount(p, p.cycle)  # discount over a normal 60-day cycle (hold)
     dg = discount(p, p.cycle + book.ext[:, None])  # a granted increase also stretches the term (grant)
@@ -118,4 +122,6 @@ def solve(book: Book, model: Model, lam: float = 0.0) -> tuple[np.ndarray, np.nd
             live = (t <= p.horizon)[:, None]
             pol[:, :, k, h] = live & (Qo > Qh)
             V[:, :, k, h] = np.where(live, np.maximum(Qo, Qh), TV)
-    return pol, V
+            if n == 0:
+                q[..., 0], q[..., 1] = Qh, Qo
+    return pol, V, q
