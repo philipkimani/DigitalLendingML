@@ -326,3 +326,18 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Smoke test** (from the allowed client, against the live URL): `/decisions/1` → offer, `/decisions/2` and `/decisions/30000` → hold, all from run 8 with parameter version 21 and the model SHA, matching the database; `/decisions/30001` → 404; `/decisions/-5` → 422; `/healthz` → 200. The deployed image tag equals the pushed commit SHA. Not tested: a request from a non-allowed IP (expect 403).
 - **Observed:** the very first request after scale-to-zero got a plain-text 404 from the platform proxy before the replica was ready; every request after that reached the app. Acceptable in dev; production either keeps one replica warm (always billed) or has callers retry.
 - **Concept:** separate identities for running and for deploying. The pipeline can ship images but can't read decisions; the API can read decisions but can't deploy. Federation replaces stored secrets with short-lived tokens bound to one repository and branch.
+
+### 36. PoC step 5: end-to-end check, a governed parameter change reaches the live API ✅
+- **Change:** capital budget 250,000 → 200,000; every other value copied from parameter set 21. Chosen because the expected effect is unambiguous: less capital ⇒ higher shadow price λ\* ⇒ fewer offers.
+- **Maker:** the admin inserted set 22 as `proposed` (`INSERT ... SELECT` from set 21 with the new budget). The trigger recorded the admin as maker.
+- **Checker:** the dev checker account (its own az profile, Entra token) approved set 22, then in **one transaction** retired set 21 and activated set 22, so there is never a moment with zero or two active sets. The script stops unless `session_user` is the checker.
+- **Run:** nightly job on Azure ML at the pushed commit, submitted as in entry 34. It completed and published run 9 as the managed identity. `az ml job stream` failed client-side with a base64 decoding error while the job kept running; waited on `az ml job show --query status` instead.
+- **Results (run 8 → run 9):**
+  - λ\* 0.646057 → 0.802002;
+  - offers 5,569 → 5,060 of 30,000;
+  - 509 customers moved offer → hold; **none** moved hold → offer (tighter capital only removes offers, as expected);
+  - run 8 `superseded`, run 9 `published`, in the same transaction.
+- **Audit trail:** admin INSERT (proposed) → checker approved → checker retired 21 / activated 22 → managed identity inserted and published run 9 and superseded run 8.
+- **Live API:** `/decisions/63` and `/decisions/193` (offer in run 8) now return hold; `/decisions/1` still offer, `/decisions/2` still hold; every response carries run 9, parameter version 22 and the new model SHA. No API change or redeploy was needed: it always reads the published run.
+- **Rollback path:** a retired set can't be re-activated (history isn't rewritten). Going back to 250,000 means proposing a new set with set 21's values and approving it the same way.
+- **Concept:** the governed path is the only path. A parameter change reaches customers only through maker → independent checker → reproducible run → atomic publish, and each step is recorded by the database under the identity that did it.
