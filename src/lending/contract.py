@@ -53,3 +53,17 @@ def validate(df):
     which is what you want when fixing a bad file.
     """
     return BOOK.validate(df, lazy=True)
+
+
+def split_valid(df):
+    """(validated rows that pass every per-row rule, number of rows dropped).
+
+    For state derived from events: a customer outside the model's validated range (say a $6,000 loan) gets
+    no decision rather than stopping the whole run. Table-level rules (every bucket present) still raise.
+    """
+    try:
+        return validate(df), 0
+    except pa.errors.SchemaErrors as err:
+        bad = err.failure_cases["index"].dropna().unique()
+        kept = df.drop(index=bad)
+        return validate(kept), len(df) - len(kept)

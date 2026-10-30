@@ -58,37 +58,44 @@ ALTER TABLE parameter_sets DISABLE TRIGGER parameter_sets_govern;
 SELECT pg_temp.must_fail('approved with no checker (constraint)', pg_temp.params('{"status": "approved"}'));
 SELECT pg_temp.must_fail('maker approves own set (constraint)',
     pg_temp.params(jsonb_build_object('status', 'approved', 'checker', session_user, 'checked_at', now())));
-DO $$ BEGIN EXECUTE pg_temp.params(jsonb_build_object('status', 'active', 'checker', 'someone-else', 'checked_at', now())); END $$;
+-- Make sure one set is active (a live database already has one), so the next insert is the second.
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT FROM parameter_sets WHERE status = 'active') THEN
+        EXECUTE pg_temp.params(jsonb_build_object('status', 'active', 'checker', 'someone-else', 'checked_at', now()));
+    END IF;
+END $$;
 SELECT pg_temp.must_fail('second active set (index)',
     pg_temp.params(jsonb_build_object('status', 'active', 'checker', 'someone-else', 'checked_at', now())));
 ALTER TABLE parameter_sets ENABLE TRIGGER parameter_sets_govern;
 
--- Runs and decisions.
+-- Runs and decisions. On a live database the current published run is superseded first (rolled back with
+-- everything else); every insert below targets only the check run, data_version 'check'.
+UPDATE runs SET status = 'superseded' WHERE status = 'published';
 INSERT INTO runs (param_version, model_version, data_version, status, published_at)
-SELECT max(param_version), 'a4b3d3a', 'azureml:customer-book:1', 'published', now() FROM parameter_sets;
+SELECT max(param_version), 'a4b3d3a', 'check', 'published', now() FROM parameter_sets;
 SELECT pg_temp.must_fail('second published run', $q$
     INSERT INTO runs (param_version, model_version, data_version, status, published_at)
     SELECT max(param_version), 'a4b3d3a', 'x', 'published', now() FROM parameter_sets $q$);
 SELECT pg_temp.must_fail('model_version not a git SHA', $q$
     INSERT INTO runs (param_version, model_version, data_version) SELECT max(param_version), 'latest', 'x' FROM parameter_sets $q$);
 INSERT INTO decisions (run_id, customer_id, param_version, model_version, action)
-SELECT run_id, 1, param_version, model_version, 'offer' FROM runs;
+SELECT run_id, 1, param_version, model_version, 'offer' FROM runs WHERE data_version = 'check';
 SELECT pg_temp.must_fail('decision versions differ from its run', $q$
     INSERT INTO decisions (run_id, customer_id, param_version, model_version, action)
-    SELECT run_id, 2, param_version, 'deadbee', 'offer' FROM runs $q$);
+    SELECT run_id, 2, param_version, 'deadbee', 'offer' FROM runs WHERE data_version = 'check' $q$);
 SELECT pg_temp.must_fail('action not offer/hold', $q$
     INSERT INTO decisions (run_id, customer_id, param_version, model_version, action)
-    SELECT run_id, 3, param_version, model_version, 'maybe' FROM runs $q$);
+    SELECT run_id, 3, param_version, model_version, 'maybe' FROM runs WHERE data_version = 'check' $q$);
 
 -- Customer state follows the data contract.
 SELECT pg_temp.must_fail('loan above 5000', $q$
-    INSERT INTO customer_state VALUES (1, 6000, 10, 90, 0) $q$);
+    INSERT INTO customer_state VALUES (900001, 6000, 10, 90, 0) $q$);  -- id not in use: only the range can reject it
 
 -- Events are idempotent.
-INSERT INTO events (event_id, customer_id, event_type, occurred_at) VALUES ('e1', 1, 'repay', now());
-INSERT INTO events (event_id, customer_id, event_type, occurred_at) VALUES ('e1', 1, 'repay', now())
+INSERT INTO events (event_id, customer_id, event_type, occurred_at) VALUES ('check-e1', 1, 'repay', now());
+INSERT INTO events (event_id, customer_id, event_type, occurred_at) VALUES ('check-e1', 1, 'repay', now())
     ON CONFLICT (event_id) DO NOTHING;
-DO $$ BEGIN IF (SELECT count(*) FROM events WHERE event_id = 'e1') <> 1 THEN RAISE EXCEPTION 'FAIL: duplicate event'; END IF; END $$;
+DO $$ BEGIN IF (SELECT count(*) FROM events WHERE event_id = 'check-e1') <> 1 THEN RAISE EXCEPTION 'FAIL: duplicate event'; END IF; END $$;
 
 -- Audit trail was written by the trigger.
 DO $$ BEGIN

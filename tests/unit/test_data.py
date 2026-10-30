@@ -67,3 +67,14 @@ def test_contract_rejects_missing_bucket(df):
 def test_contract_rejects_missing_column(df):
     with pytest.raises(pandera.errors.SchemaErrors):
         validate(df.drop(columns="ontime_pct"))
+
+
+def test_split_valid_drops_only_the_rows_that_break_the_contract():
+    from lending.contract import split_valid
+
+    df = generate(200, seed=3)
+    df.loc[[5, 9], "loan_amount"] = 6000  # outside the model's validated range
+    df.loc[12, "n_increases"] = 7
+    kept, dropped = split_valid(df)
+    assert dropped == 3 and len(kept) == 197 and not kept.index.isin([5, 9, 12]).any()
+    assert split_valid(generate(50, seed=3))[1] == 0

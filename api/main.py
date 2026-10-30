@@ -24,7 +24,7 @@ from fastapi import Body, Depends, FastAPI, HTTPException, Path
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 TOKEN_SCOPE = "https://ossrdbms-aad.database.windows.net/.default"  # Entra resource for Azure Postgres
 credential = DefaultAzureCredential()  # caches the token and refreshes it before expiry
@@ -70,6 +70,53 @@ class Decision(BaseModel):
     published_at: datetime
 
 
+# --- Payload contract per event type ---------------------------------------------------------------
+# What state derivation (customer_state_asof in the database) needs from each event, and nothing else.
+# An instalment is one (loan_id, due_at): a repay by due_at makes it on time, a miss means it passed unpaid.
+
+Id = Annotated[str, Field(min_length=1, max_length=128)]
+Amount = Annotated[float, Field(gt=0, le=1_000_000)]  # USD; the upper bound only rejects typos
+
+
+class Payload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class Disburse(Payload):
+    loan_id: Id
+    amount: Amount
+
+
+class Repay(Payload):
+    loan_id: Id
+    amount: Amount
+    due_at: AwareDatetime  # due date of the instalment this pays
+
+
+class Miss(Payload):
+    loan_id: Id
+    due_at: AwareDatetime  # due date that passed unpaid
+
+
+class Offer(Payload):
+    offer_id: Id
+    new_limit: Amount
+
+
+class OfferResponse(Payload):  # accept or decline
+    offer_id: Id
+
+
+PAYLOADS: dict[str, type[Payload]] = {
+    "disburse": Disburse,
+    "repay": Repay,
+    "miss": Miss,
+    "offer": Offer,
+    "accept": OfferResponse,
+    "decline": OfferResponse,
+}
+
+
 class Event(BaseModel):
     """One partner event, same fields and ranges as the events table."""
 
@@ -79,8 +126,7 @@ class Event(BaseModel):
     customer_id: int = Field(ge=0, le=2**63 - 1)
     event_type: Literal["disburse", "repay", "miss", "offer", "accept", "decline"]
     occurred_at: AwareDatetime  # a timestamp without a time zone is ambiguous, so it is rejected
-    # ponytail: payload is free-form until state derivation defines what each event type must carry
-    payload: dict = {}
+    payload: dict
 
     @field_validator("occurred_at")
     @classmethod
@@ -88,6 +134,16 @@ class Event(BaseModel):
         if v > datetime.now(UTC) + CLOCK_SKEW:
             raise ValueError("occurred_at is in the future")
         return v
+
+    @model_validator(mode="after")
+    def payload_matches_type(self) -> "Event":
+        # Check the payload against its type, then store it in one canonical form (times in UTC, amounts as
+        # floats), so a retry that writes the same instant in another time zone is still a duplicate.
+        parsed = PAYLOADS[self.event_type].model_validate(self.payload)
+        self.payload = {
+            k: v.astimezone(UTC).isoformat() if isinstance(v, datetime) else v for k, v in parsed.model_dump().items()
+        }
+        return self
 
 
 class IngestResult(BaseModel):
