@@ -468,3 +468,14 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Entra:** `az deployment group validate`, then `az deployment group create -f infra/entra.bicep` with a parameters file (object ids at deploy time, outside the repo). Verified: `Parameters.Approve` exists for users only; the app requests the Postgres `user_impersonation` scope, and a tenant-wide grant (`AllPrincipals`) exists; the federated credential `api-managed-identity` trusts the API's managed identity (issuer `https://login.microsoftonline.com/<tenant>/v2.0`, audience `api://AzureADTokenExchange`); assignments are Decisions.Read and Events.Write (admin) and Parameters.Approve (admin and the dev checker).
 - **Database:** `db/bootstrap_identity.sql` with `-v identity=<checker UPN> -v oid=<object id>` against `postgres` recorded the checker's object id on its role (`SECURITY LABEL FOR "pgaadauth"`). The API's lookup now finds the checker's role from its object id; the checker still logs in with psql and is a member of `lending_checker`.
 - **Concept:** Azure Postgres maps roles to Entra principals by object id in a security label; a role created by name can carry the id afterwards, which is what lets a service find "which login is this token's person".
+
+### 51. Maker-checker approvals, step 2: live test through the API
+- **Deployed:** commit `1602461` (the approval endpoints), rolled out by the API pipeline.
+- **Test set:** the admin inserted parameter set 51 (a copy of set 22, status proposed, note "not for activation") with psql.
+- **Live results** (the image running that commit):
+  - the admin approving its own set 51 → **409**, refused by the database trigger (maker may not approve);
+  - no token → 401;
+  - the checker's token: `GET /parameter-sets` → 200 (set 51 proposed, set 22 active, with parameters); `POST /parameter-sets/51/approve` → **200**, `checker` = the dev checker, `checked_at` set by the database.
+- **Audit:** the INSERT of set 51 is by the admin, and the proposed → approved UPDATE has the checker's login as `actor`. So the on-behalf-of connection really ran as the checker, not as the API's identity.
+- **Left behind:** set 51 stays `approved` (the trigger allows no approved → rejected/retired). It does not drive decisions unless someone activates it; set 22 remains active.
+- **Not tested live:** `reject` and `activate` (same code path as approve; unit-tested), and a person without a database login (403).
