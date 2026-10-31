@@ -91,7 +91,7 @@ The repository turns that research into a governed service:
 | Infrastructure | Bicep, including Entra objects (Microsoft Graph Bicep) |
 | CI/CD | GitHub Actions: unit tests, image build and rollout; migrations and database checks on a fresh PostgreSQL |
 
-Details: [docs/architecture.md](docs/architecture.md). API reference: [docs/api.md](docs/api.md). Every change and the reasoning behind it: [docs/ledger.md](docs/ledger.md).
+Full research report (method, results, sensitivity, figures): [docs/report.md](docs/report.md). Study notes explaining each technique from first principles: [docs/study/](docs/study/README.md). Details: [docs/architecture.md](docs/architecture.md). API reference: [docs/api.md](docs/api.md). Every change and the reasoning behind it: [docs/ledger.md](docs/ledger.md).
 
 ## Quick start
 
@@ -125,7 +125,7 @@ db/              SQL migrations
 infra/           Bicep: Azure environment and Entra app registration
 scripts/         developer helpers
 tests/           unit tests, database checks, opt-in parity tests against the research implementation
-docs/            architecture, API, data card, assumptions, model card, ledger
+docs/            research report, study notes, architecture, API, data card, assumptions, model card, roadmap, ledger
 notebooks/       exploration
 ```
 

@@ -16,7 +16,7 @@ What is left to finish the build, in order. Detail for Phase 2 steps: `docs/arch
 
 ## Now: 2.2 maker-checker approvals
 
-- [ ] Commit and push the connector work (Entra connector app, `api/connector.swagger.json`, test)
+- [x] Commit and push the connector work (Entra connector app, `api/connector.swagger.json`, test)
 - [ ] 3d Power App: proposed sets, comparison with the active set, Approve / Reject / Activate, database refusal text shown
 - [ ] 3e Power Automate notification when a set is proposed
 - [ ] 4 End-to-end in the browser as maker and as checker

@@ -491,3 +491,15 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Why:** the plan was spread across the architecture doc and session notes; one file makes progress visible.
 - **How:** written by hand from `docs/architecture.md` and the ledger; no code or infrastructure change.
 - **Concept:** a roadmap tracks order and status; the architecture doc keeps the design detail.
+
+### 54. Full research report published in docs
+- **What:** `docs/report.md` (the complete research report: method, assumptions, results, sensitivity, production notes, glossary) and its eight figures in `docs/figures/`; linked from the README.
+- **Why:** the README carries a summary; readers learning the method need the full write-up and charts.
+- **How:** a copy of the private source (left unchanged), opened with a paraphrased problem statement (context, given terms, the five questions) and rewritten in neutral voice; a preface explains how this repository's synthetic-data numbers relate to it. Figures checked by eye for content that should not be public.
+- **Concept:** a README is the entry point; long-form material lives in `docs/` and is linked, so the front page stays short.
+
+### 55. Study notes published in docs/study
+- **What:** 14 teaching notes plus an index (`docs/study/README.md`), numbered in reading order and grouped into start here, the data, the method, and results and stress tests; 13 figures in `docs/study/figures/`. Linked from the README and the report.
+- **Why:** the project is meant to teach the method; the report states results, the notes explain each technique from first principles with worked numbers, weaknesses and self-tests.
+- **How:** rewritten from private notes (left unchanged) in neutral voice, with code line references and private file paths removed, figures inside the notes kept consistent with the final report (100-path λ search, λ* ≈ 0.62, final scenario results). Not published: interview preparation, the earlier Vercel/Neon deployment design (superseded by `docs/architecture.md`) and the analysis script.
+- **Concept:** a report answers "what"; study notes answer "how and why", with cross-links so a reader can go from a result to the technique behind it.
