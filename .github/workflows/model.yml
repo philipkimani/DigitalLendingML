@@ -1,0 +1,29 @@
+# Model checks: unit tests and the blocking model gates (NPV vs champion, calibration, PSI).
+#
+# Runs on every pull request and push to main that touches the model, its tests or its dependencies.
+# The gates use a seeded synthetic book (tests/model_gates), so they need no Azure access and no secrets.
+name: model
+
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "tests/unit/**", "tests/model_gates/**", "pyproject.toml", "uv.lock", ".github/workflows/model.yml"]
+  pull_request:
+    paths: ["src/**", "tests/unit/**", "tests/model_gates/**", "pyproject.toml", "uv.lock", ".github/workflows/model.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.17"
+      - run: uv sync --frozen
+      - run: uv run pytest tests/unit -q
+      - name: Model gates
+        run: uv run pytest tests/model_gates -q

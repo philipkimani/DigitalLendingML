@@ -17,14 +17,14 @@ What is left to finish the build, in order. Detail for Phase 2 steps: `docs/arch
 ## Now: 2.2 maker-checker approvals
 
 - [x] Commit and push the connector work (Entra connector app, `api/connector.swagger.json`, test)
-- [ ] 3d Power App: proposed sets, comparison with the active set, Approve / Reject / Activate, database refusal text shown
-- [ ] 3e Power Automate notification when a set is proposed
+- [x] 3d Power App: proposed sets, comparison with the active set, Approve / Reject / Activate, database refusal text shown
+- [x] 3e Power Automate notification when a set is proposed (manual flow, email from the checker's mailbox)
 - [ ] 4 End-to-end in the browser as maker and as checker
 - [ ] Optional: propose a parameter set through the API (today the maker uses psql)
 
 ## Next: model and ML
 
-- [ ] Model gates in `tests/model_gates/`: NPV vs champion, calibration, PSI drift; blocking
+- [x] Model gates in `tests/model_gates/`: NPV vs champion, calibration, PSI drift; blocking in CI
 - [ ] Monthly estimation (`jobs/estimate.py`): estimate parameters from logged events, write them as *proposed* sets into the approval flow
 - [ ] Train / validate jobs and model registration in Azure ML
 - [ ] On-time evidence as instalment counts (Beta-Binomial) instead of a point percentage
