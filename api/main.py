@@ -2,12 +2,20 @@
 
     GET /decisions/{customer_id}  today's action from the published run, with what produced it
     POST /events                  partner event ingest, idempotent on the partner's event_id
+    GET /parameter-sets           parameter sets awaiting a decision or in force (proposed, approved, active)
+    POST /parameter-sets/{v}/{approve|reject|activate}   maker-checker step, run as the signed-in person
     GET /healthz                  liveness (no database call, so a database blip doesn't restart the app)
 
 Callers authenticate with an Entra ID access token (Authorization: Bearer ...) for the lending-api app
 (infra/entra.bicep), and each endpoint needs an app role in it: Decisions.Read for /decisions, Events.Write
-for /events. AUTH_TENANT_ID and AUTH_AUDIENCE (the app's client id) are set on the Container App; without them
-protected endpoints answer 503 rather than run unauthenticated. /healthz needs no token.
+for /events, Parameters.Approve for /parameter-sets. AUTH_TENANT_ID and AUTH_AUDIENCE (the app's client id) are
+set on the Container App; without them protected endpoints answer 503 rather than run unauthenticated. /healthz
+needs no token.
+
+/parameter-sets talks to Postgres as the person, not as the API: the API trades their token for a Postgres
+token on their behalf (OAuth on-behalf-of) and logs in as their own database role. So the maker-checker
+trigger (migration 002) sees who really approved, and an admin still can't approve their own proposal. The
+exchange authenticates the API app with its managed identity (a federated credential, no client secret).
 
 Connection settings come from the standard libpq variables PGHOST, PGDATABASE, PGUSER (set on the
 Container App). There is no stored password: each new connection gets a fresh Entra token from the
@@ -29,7 +37,7 @@ from typing import Annotated, Any, Literal
 
 import jwt
 import psycopg
-from azure.identity import DefaultAzureCredential
+from azure.identity import DefaultAzureCredential, OnBehalfOfCredential
 from fastapi import Body, Depends, FastAPI, HTTPException, Path
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from psycopg.rows import dict_row
@@ -60,6 +68,25 @@ STORED_EVENTS_SQL = """
     SELECT event_id, customer_id, event_type, occurred_at, payload FROM events WHERE event_id = ANY(%s)
 """
 EVENT_FIELDS = ("customer_id", "event_type", "occurred_at", "payload")  # what must match on a retry
+
+# The Postgres role Entra mapped to this user: Azure Postgres stores the mapping as a security label
+# 'aadauth,oid=<object id>,type=user[,admin]' on the role (db/bootstrap_identity.sql).
+LOGIN_ROLE_SQL = """
+    SELECT r.rolname FROM pg_shseclabel s JOIN pg_roles r ON r.oid = s.objoid
+    WHERE s.classoid = 'pg_authid'::regclass AND s.provider = 'pgaadauth'
+      AND %s = ANY(string_to_array(s.label, ','))
+"""
+GOVERNANCE = ("param_version", "status", "note", "maker", "created_at", "checker", "checked_at")
+PARAMETER_SETS_SQL = f"""
+    SELECT {", ".join(GOVERNANCE)}, to_jsonb(p) - %s::text[] AS params
+    FROM parameter_sets p WHERE status IN ('proposed', 'approved', 'active') ORDER BY param_version DESC
+"""
+MOVE_SQL = f"""
+    UPDATE parameter_sets p SET status = %s WHERE param_version = %s
+    RETURNING {", ".join(GOVERNANCE)}, to_jsonb(p) - %s::text[] AS params
+"""
+TARGET = {"approve": "approved", "reject": "rejected", "activate": "active"}
+ASSERTION_SCOPE = "api://AzureADTokenExchange/.default"  # managed identity token the app presents as its credential
 CLOCK_SKEW = timedelta(minutes=5)  # tolerated difference between the partner's clock and ours
 MAX_BATCH = 1000
 
@@ -97,6 +124,17 @@ REASONS = {
     "capital_limit": "An increase would add value, but this cycle's capital budget went where it adds more.",
     "risk_return": "Expected losses and churn on a larger limit outweigh its margin and fee for now.",
 }
+
+
+class ParameterSet(BaseModel):
+    param_version: int
+    status: Literal["proposed", "approved", "active", "rejected", "retired"]
+    note: str
+    maker: str  # database login that proposed it, set by the database
+    created_at: datetime
+    checker: str | None  # database login that approved or rejected it, set by the database
+    checked_at: datetime | None
+    params: dict[str, int | float]  # the model assumptions (lending.params.Params fields)
 
 
 # --- Payload contract per event type ---------------------------------------------------------------
@@ -301,6 +339,58 @@ def event_store() -> Iterator[Callable[[list[Event]], IngestResult]]:
     yield ingest
 
 
+def approver(claims: Annotated[dict, Depends(require_role("Parameters.Approve"))]) -> dict:
+    """A person's token (delegated: it has scp) with Parameters.Approve. An app-only token can't act for anyone."""
+    if "scp" not in claims or "oid" not in claims:
+        raise HTTPException(status_code=403, detail="needs a signed-in person's token, not an application's")
+    return claims
+
+
+class ParameterStore:
+    """Parameter-set reads and status changes on a connection logged in as the caller's own database role."""
+
+    def __init__(self, conn: psycopg.Connection):
+        self.conn = conn
+
+    def in_play(self) -> list[dict]:
+        return self.conn.execute(PARAMETER_SETS_SQL, (list(GOVERNANCE),)).fetchall()  # type: ignore[return-value]
+
+    def move(self, version: int, action: str) -> dict:
+        """The set after the change (LookupError if there is none). The database decides who may do what."""
+        with self.conn.transaction():
+            if action == "activate":  # one active set at a time: retire the current one in the same transaction
+                self.conn.execute(
+                    "UPDATE parameter_sets SET status = 'retired' WHERE status = 'active' AND param_version <> %s",
+                    (version,),
+                )
+            row = self.conn.execute(MOVE_SQL, (TARGET[action], version, list(GOVERNANCE))).fetchone()
+            if row is None:
+                raise LookupError(version)  # rolls back the retirement too
+        return row  # type: ignore[return-value]
+
+
+def parameter_store(
+    creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    claims: Annotated[dict, Depends(approver)],
+) -> Iterator[ParameterStore]:
+    """Dependency: a store connected to Postgres as the caller (tests swap in a fake)."""
+    tenant, audience = auth_config()
+    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        login = cur.execute(LOGIN_ROLE_SQL, (f"oid={claims['oid']}",)).fetchone()
+    if login is None:
+        raise HTTPException(status_code=403, detail="you have no database login")
+    # ponytail: one token exchange per request (fine at approval volumes); cache per user if it ever matters.
+    obo = OnBehalfOfCredential(
+        tenant,
+        audience,
+        user_assertion=creds.credentials,  # type: ignore[union-attr]  # approver() guarantees a token
+        client_assertion_func=lambda: credential.get_token(ASSERTION_SCOPE).token,
+    )
+    password = obo.get_token(TOKEN_SCOPE).token
+    with psycopg.connect(user=login["rolname"], password=password, sslmode="require", row_factory=dict_row) as user:
+        yield ParameterStore(user)  # type: ignore[arg-type]
+
+
 @app.post("/events", response_model=IngestResult)
 def post_events(
     events: Annotated[list[Event], Body(min_length=1, max_length=MAX_BATCH)],
@@ -338,4 +428,36 @@ def get_decision(
     row = lookup(customer_id)
     if row is None:
         raise HTTPException(status_code=404, detail="no decision for this customer in the published run")
+    return row
+
+
+@app.get("/parameter-sets", response_model=list[ParameterSet])
+def list_parameter_sets(
+    store: Annotated[ParameterStore, Depends(parameter_store)],
+    _: Annotated[dict, Depends(approver)],
+) -> list[dict]:
+    """Parameter sets awaiting a decision or in force, newest first."""
+    return store.in_play()
+
+
+@app.post("/parameter-sets/{version}/{action}", response_model=ParameterSet)
+def change_parameter_set(
+    version: Annotated[int, Path(ge=1, le=2**31 - 1)],
+    action: Literal["approve", "reject", "activate"],
+    store: Annotated[ParameterStore, Depends(parameter_store)],
+    _: Annotated[dict, Depends(approver)],
+) -> dict:
+    """Approve or reject a proposed set, or activate an approved one (retiring the active set).
+
+    The database enforces maker-checker: the caller must be a checker and not the set's maker. A refused
+    change is a 409 with the database's reason; repeating a change already made is a no-op.
+    """
+    try:
+        row = store.move(version, action)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="no such parameter set") from None
+    except psycopg.errors.CheckViolation as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except psycopg.errors.InsufficientPrivilege as exc:
+        raise HTTPException(status_code=403, detail="the database refused: you are not a checker") from exc
     return row

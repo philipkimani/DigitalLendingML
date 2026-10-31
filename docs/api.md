@@ -8,6 +8,8 @@ All customer ids and values below are **synthetic** (the 30,000-customer seed bo
 |---|---|
 | `GET /decisions/{customer_id}` | Today's offer/hold for one customer, with why |
 | `POST /events` | Partner events, idempotent on `event_id` |
+| `GET /parameter-sets` | Parameter sets proposed, approved or active |
+| `POST /parameter-sets/{version}/{approve\|reject\|activate}` | Maker-checker step, performed as the caller |
 | `GET /healthz` | Liveness; never touches the database |
 
 ## Authentication
@@ -18,6 +20,7 @@ Every endpoint except `/healthz` needs an Entra ID access token for the `lending
 |---|---|
 | `GET /decisions/{customer_id}` | `Decisions.Read` |
 | `POST /events` | `Events.Write` |
+| `/parameter-sets` | `Parameters.Approve`, in a person's token (an application token gets 403) |
 
 ```bash
 token=$(az account get-access-token --scope <api client id>/.default --query accessToken -o tsv)
@@ -138,3 +141,27 @@ Rules: timestamps need a time zone; `occurred_at` may not be more than 5 minutes
 | 422 | The batch breaks a rule above. Nothing was stored |
 
 Events feed `customer_state_asof(T)` in the database, which derives each customer's model inputs from the log as of a moment (migration 003).
+
+---
+
+## Parameter sets (maker-checker)
+
+Model assumptions live in versioned parameter sets. One person proposes a set; another approves it; only then can it be activated and drive the nightly run. The **database** enforces this (migration 002): it records who made and who checked each set from the database login, and refuses an approval by the set's own maker.
+
+These endpoints keep that guarantee when approvals come through the API: the API exchanges the caller's token **on-behalf-of** them for a database token and runs the change **as the caller's own database login**, not as the API. So the database sees the real approver, and an administrator still cannot approve their own proposal.
+
+| Request | Effect |
+|---|---|
+| `GET /parameter-sets` | Sets proposed, approved or active, newest first: who made and checked each, and all parameter values |
+| `POST /parameter-sets/{version}/approve` | proposed → approved |
+| `POST /parameter-sets/{version}/reject` | proposed → rejected |
+| `POST /parameter-sets/{version}/activate` | approved → active; the active set is retired in the same transaction |
+
+| Status | When |
+|---|---|
+| 200 | The set after the change. Repeating a change already made is a no-op |
+| 403 | Not a person's token, no database login for the caller, or the caller is not a checker |
+| 404 | No such parameter set |
+| 409 | The database refused the change, with its reason (e.g. the caller made the set, or the set is not in a state that allows it) |
+
+Proposing a set is not in the API yet; it is done in the database by the maker.
