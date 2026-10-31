@@ -479,3 +479,15 @@ Status key: ✅ done · ⏳ in progress · ⏸ proposed, not done
 - **Audit:** the INSERT of set 51 is by the admin, and the proposed → approved UPDATE has the checker's login as `actor`. So the on-behalf-of connection really ran as the checker, not as the API's identity.
 - **Left behind:** set 51 stays `approved` (the trigger allows no approved → rejected/retired). It does not drive decisions unless someone activates it; set 22 remains active.
 - **Not tested live:** `reject` and `activate` (same code path as approve; unit-tested), and a person without a database login (403).
+
+### 52. Maker-checker approvals, step 3a–3c: custom connector signs people in with no secret
+- **Entra** (`infra/entra.bicep`, two deploys): a single-tenant client app `lending-api-dev-connector` with delegated `access_as_user` on the API, tenant-wide consent (a grant rather than pre-authorisation, which would make the two apps depend on each other). The second deploy added the connector's redirect URL and a federated credential trusting the connector's managed identity: the connector's Entra sign-in uses a managed identity, not a client secret (supported for single-tenant client apps).
+- **Connector:** `api/connector.swagger.json` (Swagger 2.0, which custom connectors require; the API's own OpenAPI is 3.1): List, Approve, Reject, Activate, with typed parameter fields. `API_HOST` is replaced with the real host only in a local copy for import. A unit test fails if the file drifts from the API's routes or response fields.
+- **Portal (as the dev checker, default environment):** Import OpenAPI → OAuth 2.0 / Azure Active Directory, client = the connector app, managed identity, resource = the API's client id, on-behalf-of login off.
+- **Verified:** the connector's test tab, new connection signed in as the checker, `ListParameterSets` → 200 with sets 51 (approved) and 22 (active). Person → connector → API → on-behalf-of → Postgres as the checker, no secret anywhere. The test tab's "schema validation" warnings were only missing `format` hints (int32/float), since added to the file.
+
+### 53. Roadmap in one place
+- **What:** `docs/roadmap.md`, a checklist of what is done and what is left (approvals, model gates and estimation, hardening, remaining Phase 2, mock app).
+- **Why:** the plan was spread across the architecture doc and session notes; one file makes progress visible.
+- **How:** written by hand from `docs/architecture.md` and the ledger; no code or infrastructure change.
+- **Concept:** a roadmap tracks order and status; the architecture doc keeps the design detail.

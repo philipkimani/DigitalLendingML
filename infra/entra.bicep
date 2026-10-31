@@ -35,6 +35,16 @@ param parameterApprovers array = []
 @description('Principal (object) id of the API\'s managed identity: the credential the app uses for on-behalf-of.')
 param apiIdentityPrincipalId string
 
+// The Power Platform custom connector (api/connector.swagger.json) signs people in through its own app.
+// Its redirect URL and managed identity exist only once the connector is saved, so a first deploy leaves them
+// empty and a second one fills them in.
+@description('Redirect URL shown on the custom connector\'s Security tab.')
+param connectorRedirectUri string = ''
+@description('Issuer of the custom connector\'s managed identity (connector Security tab).')
+param connectorIssuer string = ''
+@description('Subject of the custom connector\'s managed identity (connector Security tab).')
+param connectorSubject string = ''
+
 var azureCliClientId = '04b07795-8ddb-461a-bbee-02f9e1bf7b46' // Microsoft Azure CLI, a first-party public client
 var postgresAppId = '123cd850-d9df-40bd-94d5-c9f07b7fa203' // Azure OSSRDBMS Database, first-party (same in every tenant)
 var scopeId = guid(appName, 'access_as_user')
@@ -151,5 +161,39 @@ resource approvers 'Microsoft.Graph/appRoleAssignedTo@v1.0' = [
   }
 ]
 
+// --- Custom connector client: Power Apps / Power Automate call the API as the signed-in person ---------------
+// Single tenant (required for a connector that uses a managed identity instead of a client secret). Its tokens
+// are for the API with access_as_user and carry the person's own roles, so the API's on-behalf-of login works.
+resource connector 'Microsoft.Graph/applications@v1.0' = {
+  uniqueName: '${appName}-connector'
+  displayName: '${appName}-connector'
+  signInAudience: 'AzureADMyOrg'
+  web: { redirectUris: empty(connectorRedirectUri) ? [] : [connectorRedirectUri] }
+  requiredResourceAccess: [
+    { resourceAppId: app.appId, resourceAccess: [{ id: scopeId, type: 'Scope' }] }
+  ]
+}
+
+resource connectorSp 'Microsoft.Graph/servicePrincipals@v1.0' = {
+  appId: connector.appId
+}
+
+// Tenant-wide consent for access_as_user (a grant, not preAuthorizedApplications, which would make the two
+// apps depend on each other).
+resource connectorConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = {
+  clientId: connectorSp.id
+  consentType: 'AllPrincipals'
+  resourceId: sp.id
+  scope: 'access_as_user'
+}
+
+resource connectorIdentity 'Microsoft.Graph/applications/federatedIdentityCredentials@v1.0' = if (!empty(connectorSubject)) {
+  name: '${connector.uniqueName}/power-platform-connector'
+  issuer: connectorIssuer
+  subject: connectorSubject
+  audiences: ['api://AzureADTokenExchange']
+}
+
+output connectorClientId string = connector.appId
 output apiClientId string = app.appId
 output tenantId string = tenant().tenantId

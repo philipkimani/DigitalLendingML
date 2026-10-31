@@ -4,7 +4,10 @@ The store is faked; maker-checker itself is the database trigger's job (tests/db
 on-behalf-of login is checked against the running API.
 """
 
+import json
+import re
 from datetime import UTC, datetime
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -96,3 +99,14 @@ def test_not_a_checker_is_403():
 def test_unknown_set_and_action():
     assert approve(auth(["Parameters.Approve"], **PERSON), version=99).status_code == 404
     assert approve(auth(["Parameters.Approve"], **PERSON), action="delete").status_code == 422
+
+
+def test_connector_definition_matches_the_api():
+    # The Power Platform connector (api/connector.swagger.json) is hand-kept Swagger 2.0; it must not drift.
+    swagger = json.loads((Path(__file__).parents[2] / "api" / "connector.swagger.json").read_text())
+    openapi = app.openapi()
+    for path, ops in swagger["paths"].items():
+        template = re.sub(r"/(approve|reject|activate)$", "/{action}", path)
+        assert set(ops) <= set(openapi["paths"][template]), path
+    fields = openapi["components"]["schemas"]["ParameterSet"]["properties"]
+    assert set(swagger["definitions"]["ParameterSet"]["properties"]) == set(fields)

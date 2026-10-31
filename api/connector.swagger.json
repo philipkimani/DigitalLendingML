@@ -1,0 +1,280 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Lending approvals",
+    "version": "1.0",
+    "description": "Maker-checker approvals for the lending model's parameter sets. Every call runs as the signed-in person; the database decides who may approve."
+  },
+  "host": "API_HOST",
+  "basePath": "/",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "oauth2-auth": {
+      "type": "oauth2",
+      "flow": "accessCode",
+      "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/authorize",
+      "tokenUrl": "https://login.microsoftonline.com/common/oauth2/authorize",
+      "scopes": {}
+    }
+  },
+  "security": [
+    {
+      "oauth2-auth": []
+    }
+  ],
+  "paths": {
+    "/parameter-sets": {
+      "get": {
+        "operationId": "ListParameterSets",
+        "summary": "List parameter sets",
+        "description": "Sets proposed, approved or active, newest first.",
+        "responses": {
+          "200": {
+            "description": "Parameter sets",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ParameterSet"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/parameter-sets/{version}/approve": {
+      "post": {
+        "operationId": "ApproveParameterSet",
+        "summary": "Approve a parameter set",
+        "description": "Proposed to approved. The caller must be a checker and not the maker.",
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "x-ms-summary": "Version"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The set after the change",
+            "schema": {
+              "$ref": "#/definitions/ParameterSet"
+            }
+          },
+          "403": {
+            "description": "Not allowed (not a checker, or no database login)"
+          },
+          "404": {
+            "description": "No such parameter set"
+          },
+          "409": {
+            "description": "Refused by the database, with its reason"
+          }
+        }
+      }
+    },
+    "/parameter-sets/{version}/reject": {
+      "post": {
+        "operationId": "RejectParameterSet",
+        "summary": "Reject a parameter set",
+        "description": "Proposed to rejected. The caller must be a checker and not the maker.",
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "x-ms-summary": "Version"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The set after the change",
+            "schema": {
+              "$ref": "#/definitions/ParameterSet"
+            }
+          },
+          "403": {
+            "description": "Not allowed (not a checker, or no database login)"
+          },
+          "404": {
+            "description": "No such parameter set"
+          },
+          "409": {
+            "description": "Refused by the database, with its reason"
+          }
+        }
+      }
+    },
+    "/parameter-sets/{version}/activate": {
+      "post": {
+        "operationId": "ActivateParameterSet",
+        "summary": "Activate a parameter set",
+        "description": "Approved to active; the active set is retired in the same transaction.",
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "x-ms-summary": "Version"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The set after the change",
+            "schema": {
+              "$ref": "#/definitions/ParameterSet"
+            }
+          },
+          "403": {
+            "description": "Not allowed (not a checker, or no database login)"
+          },
+          "404": {
+            "description": "No such parameter set"
+          },
+          "409": {
+            "description": "Refused by the database, with its reason"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "ParameterSet": {
+      "type": "object",
+      "properties": {
+        "param_version": {
+          "type": "integer",
+          "x-ms-summary": "Version",
+          "format": "int32"
+        },
+        "status": {
+          "type": "string",
+          "x-ms-summary": "Status"
+        },
+        "note": {
+          "type": "string",
+          "x-ms-summary": "Note"
+        },
+        "maker": {
+          "type": "string",
+          "x-ms-summary": "Proposed by"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "x-ms-summary": "Proposed at"
+        },
+        "checker": {
+          "type": "string",
+          "x-ms-summary": "Checked by"
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time",
+          "x-ms-summary": "Checked at"
+        },
+        "params": {
+          "type": "object",
+          "x-ms-summary": "Parameters",
+          "properties": {
+            "n0": {
+              "type": "number",
+              "format": "float"
+            },
+            "kappa": {
+              "type": "number",
+              "format": "float"
+            },
+            "early": {
+              "type": "number",
+              "format": "float"
+            },
+            "early_fee": {
+              "type": "number",
+              "format": "float"
+            },
+            "gamma": {
+              "type": "number",
+              "format": "float"
+            },
+            "step": {
+              "type": "number",
+              "format": "float"
+            },
+            "lgd": {
+              "type": "number",
+              "format": "float"
+            },
+            "m": {
+              "type": "number",
+              "format": "float"
+            },
+            "fee": {
+              "type": "number",
+              "format": "float"
+            },
+            "c0": {
+              "type": "number",
+              "format": "float"
+            },
+            "c_deny": {
+              "type": "number",
+              "format": "float"
+            },
+            "k_prime": {
+              "type": "number",
+              "format": "float"
+            },
+            "k_near": {
+              "type": "number",
+              "format": "float"
+            },
+            "k_sub": {
+              "type": "number",
+              "format": "float"
+            },
+            "budget": {
+              "type": "number",
+              "format": "float"
+            },
+            "disc": {
+              "type": "number",
+              "format": "float"
+            },
+            "fixed_cost": {
+              "type": "number",
+              "format": "float"
+            },
+            "fatigue": {
+              "type": "number",
+              "format": "float"
+            },
+            "horizon": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "cycle": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "max_k": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      }
+    }
+  }
+}
