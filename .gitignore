@@ -30,3 +30,6 @@ outputs/
 
 # Notebooks: commit the paired .py (jupytext), not outputs
 .ipynb_checkpoints/
+
+# Private build log (kept locally, not published)
+docs/ledger.md

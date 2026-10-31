@@ -6,6 +6,8 @@ At each 60-day eligibility window the model decides, per customer, whether to **
 
 > **Status:** working proof of concept on Azure. A nightly job solves the policy for the whole book and publishes one decision per customer, with a reason code; an authenticated API serves them and ingests partner events. All data in this repository is synthetic, and every model parameter is a stated assumption to be replaced by estimates from logged outcomes ([docs/assumptions.md](docs/assumptions.md)).
 
+> **Full research report:** this README summarises the model and results. The complete write-up (problem statement, data findings, method, assumptions, answers to the five questions, sensitivity, production notes and figures) is in **[docs/report.md](docs/report.md)**, and each technique is explained step by step in the **[study notes](docs/study/README.md)**.
+
 ## The model
 
 The problem is sequential: whether to offer an increase now depends on what the best decisions will be later in the year. It is modelled as a **Markov decision process** over risk states, solved exactly for every customer, with a single **shadow price on capital** keeping the portfolio within budget, and checked in a **Monte Carlo simulation** of the year.
@@ -31,7 +33,7 @@ where a is the acceptance probability, f the fee net of early-repayment rebates,
 
 ## Research results
 
-From the research phase, on a 30,000-customer reference book replaying a year (2023, Kenya macro path), 100 simulated paths:
+From the research phase, on a 30,000-customer reference book replaying a year (2023, Kenya macro path), 100 simulated paths. Charts and the full discussion: [docs/report.md](docs/report.md).
 
 | Strategy | NPV mean | NPV P5–P95 | Increases | Default rate | Churn | Risk-weighted capital |
 |---|---|---|---|---|---|---|
@@ -91,7 +93,7 @@ The repository turns that research into a governed service:
 | Infrastructure | Bicep, including Entra objects (Microsoft Graph Bicep) |
 | CI/CD | GitHub Actions: unit tests, image build and rollout; migrations and database checks on a fresh PostgreSQL |
 
-Full research report (method, results, sensitivity, figures): [docs/report.md](docs/report.md). Study notes explaining each technique from first principles: [docs/study/](docs/study/README.md). Details: [docs/architecture.md](docs/architecture.md). API reference: [docs/api.md](docs/api.md). Every change and the reasoning behind it: [docs/ledger.md](docs/ledger.md).
+Full research report (method, results, sensitivity, figures): [docs/report.md](docs/report.md). Study notes explaining each technique from first principles: [docs/study/](docs/study/README.md). Details: [docs/architecture.md](docs/architecture.md). API reference: [docs/api.md](docs/api.md).
 
 ## Quick start
 
@@ -125,7 +127,7 @@ db/              SQL migrations
 infra/           Bicep: Azure environment and Entra app registration
 scripts/         developer helpers
 tests/           unit tests, database checks, opt-in parity tests against the research implementation
-docs/            research report, study notes, architecture, API, data card, assumptions, model card, roadmap, ledger
+docs/            research report, study notes, architecture, API, data card, assumptions, model card, roadmap
 notebooks/       exploration
 ```
 

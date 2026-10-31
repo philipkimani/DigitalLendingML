@@ -1,6 +1,6 @@
 # Roadmap
 
-What is left to finish the build, in order. Detail for Phase 2 steps: `docs/architecture.md`. History of completed work: `docs/ledger.md`.
+What is left to finish the build, in order. Detail for Phase 2 steps: `docs/architecture.md`.
 
 ## Done
 
