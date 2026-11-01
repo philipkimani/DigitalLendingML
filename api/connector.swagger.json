@@ -86,7 +86,7 @@
       "post": {
         "operationId": "RejectParameterSet",
         "summary": "Reject a parameter set",
-        "description": "Proposed to rejected. The caller must be a checker and not the maker.",
+        "description": "Proposed or approved to rejected. The caller must be a checker and not the maker.",
         "parameters": [
           {
             "name": "version",

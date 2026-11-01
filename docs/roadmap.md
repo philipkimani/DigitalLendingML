@@ -19,7 +19,9 @@ What is left to finish the build, in order. Detail for Phase 2 steps: `docs/arch
 - [x] Commit and push the connector work (Entra connector app, `api/connector.swagger.json`, test)
 - [x] 3d Power App: proposed sets, comparison with the active set, Approve / Reject / Activate, database refusal text shown
 - [x] 3e Power Automate notification when a set is proposed (manual flow, email from the checker's mailbox)
-- [ ] 4 End-to-end in the browser as maker and as checker
+- [x] 4 End-to-end in the browser as maker and as checker (propose → email → approve → activate → nightly run → live API)
+- [ ] Move the app, custom connector and flow to a developer environment on the Power Apps Developer Plan (custom connectors are premium; the checker runs on a 30-day Power Apps trial started 2026-11-01)
+- [ ] Migration 005: a checker can move an approved set to rejected, so an approved set that must not go live has an exit
 - [ ] Optional: propose a parameter set through the API (today the maker uses psql)
 
 ## Next: model and ML

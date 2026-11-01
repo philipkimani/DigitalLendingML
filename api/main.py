@@ -447,7 +447,7 @@ def change_parameter_set(
     store: Annotated[ParameterStore, Depends(parameter_store)],
     _: Annotated[dict, Depends(approver)],
 ) -> dict:
-    """Approve or reject a proposed set, or activate an approved one (retiring the active set).
+    """Approve or reject a proposed set, reject an approved one, or activate an approved one (retiring the active set).
 
     The database enforces maker-checker: the caller must be a checker and not the set's maker. A refused
     change is a 409 with the database's reason; repeating a change already made is a no-op.
