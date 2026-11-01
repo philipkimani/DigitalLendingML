@@ -44,3 +44,25 @@ Scenarios: `base`; `adverse` (+4pp inflation, +3pp rate, +2pp unemployment); `be
 - Acceptance is estimated from the same year's increase counts it is evaluated on (a retrospective replay). In production it must be estimated from the **previous** period.
 
 Sensitivities above are NPV changes on the reference book; see the model card for how they were produced.
+
+## Estimated from events (monthly estimation)
+
+Code: `src/lending/estimate.py`; job: `jobs/estimate.py`. The job **proposes** a new parameter set; a person approves it (maker-checker), so an estimate never goes live on its own.
+
+| Parameter | Estimated as | Minimum data, else the active value is carried over |
+|---|---|---|
+| `kappa` | defaults / loans not repaid on time | 30 defaults |
+| `gamma` | maximum likelihood, each customer's reliability integrated out over its Beta prior | 200 late loans after an increase |
+| `fatigue` | logistic maximum likelihood, the customer's own prior propensity as an offset | 200 answered offers |
+| `early` | share of on-time loans repaid at least a day early | 500 on-time loans |
+| `c0` | share of loans, among windows where the customer was offered an increase, after which no new loan follows within one cycle | 30 churners |
+
+Still assumptions: `lgd` (needs recovery amounts), `c_deny` (needs refusals that are not driven by risk, i.e. a randomised test), and the business rules.
+
+**Definitions.** Default: missed and not repaid within 90 days of the due date (the Basel / IFRS 9 backstop). Late: missed and repaid within 90 days. Early: repaid at least one day before the due date. Churn: no new loan within one cycle of repaying. Only matured loans count (due at least 90 days before the run; for churn, repaid at least one cycle before), so recent loans cannot look healthier than they are.
+
+**Validation.** The estimators are tested by parameter recovery (`tests/model_gates/test_estimation.py`): outcomes simulated from known parameters (`src/lending/outcome_events.py`, same mechanics as the Monte Carlo simulator) must be estimated back within 3 standard errors, and must follow the truth when it moves. Five seeds on 30,000 customers showed no bias.
+
+**Synthetic test cohort in the development database.** To exercise the job end to end without real data, the dev database holds a simulated pilot year (2024, randomised offers to half of eligible customers) for a separate cohort with customer ids from 1,000,001, a copy of the synthetic book with on-time rates rounded down to multiples of 5 (so the state rebuilt from events matches the generator's input exactly). It sits apart from the main book's ids and history, and can be removed by that id range.
+
+**Who proposes.** The job runs as the managed identity, which may insert parameter sets (migration 006) but only as *proposed*: the database records it as the maker and refuses it as the checker.
