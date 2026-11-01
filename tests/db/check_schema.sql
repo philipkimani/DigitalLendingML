@@ -114,7 +114,9 @@ DECLARE
     want text[][] := ARRAY[
         -- table, privilege, expected
         ['customer_state', 'SELECT', 't'], ['customer_state', 'INSERT', 'f'], ['customer_state', 'UPDATE', 'f'],
-        ['parameter_sets', 'SELECT', 't'], ['parameter_sets', 'INSERT', 'f'], ['parameter_sets', 'UPDATE', 'f'],
+        -- INSERT since 006 (the estimation job proposes; the trigger keeps it to draft/proposed), never UPDATE
+        ['parameter_sets', 'SELECT', 't'], ['parameter_sets', 'INSERT', 't'], ['parameter_sets', 'UPDATE', 'f'],
+        ['parameter_sets', 'DELETE', 'f'],
         ['events', 'INSERT', 't'], ['events', 'UPDATE', 'f'], ['events', 'DELETE', 'f'],
         ['runs', 'INSERT', 't'], ['runs', 'UPDATE', 't'], ['runs', 'DELETE', 'f'],
         ['decisions', 'INSERT', 't'], ['decisions', 'UPDATE', 'f'], ['decisions', 'DELETE', 'f'],

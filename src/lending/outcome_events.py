@@ -22,8 +22,9 @@ loans keep running for `tail_days` more so that outcomes near the year end have 
 
 Events use the existing types and payloads only. Backfill: received_at = occurred_at.
 
-Command line (CSV in the events table's column order, plus the true parameters as JSON next to it):
-    uv run python -m lending.outcome_events --book data/raw/book.csv --seed 11 --out data/raw/outcomes.csv
+Command line: a test cohort for the dev database (ids shifted, a state year then the pilot year), as CSV in the
+events table's column order, plus the true parameters as JSON next to it:
+    uv run python -m lending.outcome_events --book data/raw/book.csv --seed 11 --out data/raw/cohort_events.csv
 """
 
 import argparse
@@ -38,7 +39,7 @@ import pandas as pd
 from .book import Book
 from .params import SCENARIOS, Macro, Params, month
 from .states import logit, sigmoid
-from .synthetic_events import COLUMNS
+from .synthetic_events import COLUMNS, events_for_book, expected_state
 
 # A past pilot year starting 1 January, so "increases this year" means the calendar year, as in the model and
 # in customer_state_asof. The last outcomes land ~1 cycle + extension + 60 days late after the tail (~700 days
@@ -124,20 +125,35 @@ def outcome_events(
     return ev.reset_index(drop=True)
 
 
+def cohort(book_df: pd.DataFrame, p: Params, id_offset: int, seed: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """A test cohort for a database: (cohort book, its events).
+
+    The book is `book_df` with ids shifted by `id_offset` (kept apart from the main book) and on-time rates
+    rounded down to multiples of 5, so that customer_state_asof(START) rebuilds it exactly from the events.
+    Events: the year before START replaying that state (synthetic_events), then the simulated pilot year.
+    """
+    book_df = expected_state(book_df).assign(customer_id=lambda d: d.customer_id + id_offset)
+    history = events_for_book(book_df, as_of=START, seed=seed)
+    pilot = outcome_events(Book.from_frame(book_df, cycle=p.cycle), p, seed=seed)
+    return book_df, pd.concat([history, pilot], ignore_index=True)
+
+
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Simulate a year of outcomes from known parameters, as events (CSV).")
+    ap = argparse.ArgumentParser(description="Write a synthetic test cohort (state year + pilot year) as events.")
     ap.add_argument("--book", type=Path, default=Path("data/raw/book.csv"), help="customer book CSV")
+    ap.add_argument("--id-offset", type=int, default=1_000_000, help="added to every customer id (separate range)")
     ap.add_argument("--seed", type=int, default=11, help="random seed (recorded in the truth file)")
-    ap.add_argument("--out", type=Path, default=Path("data/raw/outcomes.csv"), help="output CSV path")
+    ap.add_argument("--out", type=Path, default=Path("data/raw/cohort_events.csv"), help="output CSV path")
     args = ap.parse_args()
 
     p = Params()
-    ev = outcome_events(Book.from_frame(pd.read_csv(args.book), cycle=p.cycle), p, seed=args.seed)
+    book_df, ev = cohort(pd.read_csv(args.book), p, args.id_offset, args.seed)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     ev.to_csv(args.out, index=False, lineterminator="\n", date_format="%Y-%m-%dT%H:%M:%S%z")
-    truth = {"seed": args.seed, "start": START.isoformat(), "params": asdict(p)}
+    truth = {"seed": args.seed, "start": START.isoformat(), "id_offset": args.id_offset, "params": asdict(p)}
     args.out.with_suffix(".truth.json").write_text(json.dumps(truth, indent=2) + "\n")
-    print(f"wrote {len(ev):,} events for {ev['customer_id'].nunique():,} customers to {args.out} (seed {args.seed})")
+    ids = book_df.customer_id
+    print(f"wrote {len(ev):,} events for customers {ids.min():,}-{ids.max():,} to {args.out} (seed {args.seed})")
 
 
 if __name__ == "__main__":

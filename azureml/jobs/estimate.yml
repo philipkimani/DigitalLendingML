@@ -1,0 +1,24 @@
+# Azure ML command job: one manual run of jobs/estimate.py (monthly estimation) on the scale-to-zero cluster.
+#
+# Submit from the repo root, with a clean, committed tree (the SHA must describe the code that runs).
+# The identity's client id and the server name are passed at submit time, never committed:
+#   az ml job create -f azureml/jobs/estimate.yml -g rg-digitallending-dev -w mlw-digitallending-dev \
+#     --set inputs.model_version=$(git rev-parse HEAD) inputs.year=2024 \
+#           environment_variables.AZURE_CLIENT_ID=<client id of id-digitallending-dev> \
+#           environment_variables.PGHOST=<server>.postgres.database.azure.com
+#
+# It proposes a parameter set (never activates one): a checker reviews it in the approvals app.
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+experiment_name: estimate
+display_name: monthly-estimation
+code: ../..                         # repo root; .amlignore keeps the upload to src/ and jobs/
+command: >-
+  PYTHONPATH=src python jobs/estimate.py --model-version ${{inputs.model_version}} --year ${{inputs.year}}
+inputs:
+  model_version: ""                 # set with --set at submit
+  year: 2024
+environment: azureml:lending-nightly:1
+compute: azureml:cpu-cluster
+environment_variables:
+  PGUSER: id-digitallending-dev

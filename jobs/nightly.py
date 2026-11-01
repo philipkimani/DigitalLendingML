@@ -119,17 +119,29 @@ def main() -> None:
     # --- 3. Write and publish (one transaction) ------------------------------------------------------
     pv, mv = param_row["param_version"], args.model_version
     with connect() as conn, conn.cursor() as cur:
-        run_id = cur.execute(
+        row = cur.execute(
             "INSERT INTO runs (param_version, model_version, data_version, lambda, state_as_of)"
             " VALUES (%s, %s, %s, %s, %s) RETURNING run_id",
             (pv, mv, data_version, lam, as_of),
-        ).fetchone()[0]
+        ).fetchone()
+        if row is None:  # RETURNING always gives a row; this guards the type, and fails loudly if it ever doesn't
+            raise SystemExit("INSERT INTO runs returned no run_id")
+        run_id = row[0]
         # COPY streams all rows in one round trip (30k INSERTs would be 30k).
         cols = "run_id, customer_id, param_version, model_version, action, q_hold, q_offer, reason_code"
         with cur.copy(f"COPY decisions ({cols}) FROM STDIN") as cp:
-            for d in decisions.itertuples(index=False):
+            for d in decisions.to_dict("records"):
                 cp.write_row(
-                    (run_id, int(d.customer_id), pv, mv, d.action, float(d.q_hold), float(d.q_offer), d.reason_code)
+                    (
+                        run_id,
+                        int(d["customer_id"]),
+                        pv,
+                        mv,
+                        d["action"],
+                        float(d["q_hold"]),
+                        float(d["q_offer"]),
+                        d["reason_code"],
+                    )
                 )
         cur.execute("UPDATE runs SET status = 'superseded' WHERE status = 'published'")
         cur.execute("UPDATE runs SET status = 'published', published_at = now() WHERE run_id = %s", (run_id,))

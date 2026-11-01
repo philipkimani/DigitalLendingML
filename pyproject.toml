@@ -66,10 +66,15 @@ extend-immutable-calls = ["lending.params.Params"]
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "tests", "api"]
+files = ["src", "tests", "api", "jobs"]
+mypy_path = "jobs"  # jobs/ is a script folder; lets tests import a job module by name
 check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = ["mlflow"]  # installed only in the Azure ML environment, and ships no type hints
+ignore_missing_imports = true
 
 [tool.uv]
 # Installed by a plain `uv sync`: tests import the API and the job. `azureml` (MLflow) is cloud-only.
