@@ -27,7 +27,7 @@ What is left to finish the build, in order. Detail for Phase 2 steps: `docs/arch
 ## Next: model and ML
 
 - [x] Model gates in `tests/model_gates/`: NPV vs champion, calibration, PSI drift; blocking in CI
-- [ ] Monthly estimation (`jobs/estimate.py`): estimate parameters from logged events, write them as *proposed* sets into the approval flow
+- [x] Monthly estimation (`jobs/estimate.py`): estimate parameters from logged events, write them as *proposed* sets into the approval flow
 - [ ] Train / validate jobs and model registration in Azure ML
 - [ ] On-time evidence as instalment counts (Beta-Binomial) instead of a point percentage
 - [ ] Decide at the customer's actual increases-this-year and windows-held
