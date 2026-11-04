@@ -1,0 +1,55 @@
+# Build the managed DigitalLendingOps solution from source and import it into the Test environment.
+#
+# Runs when a merge to main changes powerplatform/, or by hand. A managed solution can't be imported into the
+# environment that holds its unmanaged source (Dev), hence Test.
+#
+# Per-environment values come from a deployment settings file (environment variable values and the connection each
+# connection reference uses). It holds environment-specific ids, so it lives in the secret PP_TEST_SETTINGS
+# (generate the shape with `pac solution create-settings`), not in this public repo.
+#
+# Auth: GitHub OIDC → federated credential on lending-powerplatform-deploy, application user in Test
+# (System Administrator: required to import managed solutions).
+name: pp-deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ["powerplatform/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: pp-deploy
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    env:
+      SOLUTION: DigitalLendingOps
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Pack managed solution
+        run: >-
+          pac solution pack --zipfile out/managed.zip --folder "powerplatform/$SOLUTION"
+          --packagetype Managed --processCanvasApps
+
+      - name: Sign in to Test
+        run: >-
+          pac auth create --githubFederated
+          --tenant "${{ secrets.AZURE_TENANT_ID }}"
+          --applicationId "${{ secrets.PP_DEPLOY_CLIENT_ID }}"
+          --environment "${{ secrets.PP_TEST_URL }}"
+
+      - name: Import into Test
+        env:
+          SETTINGS: ${{ secrets.PP_TEST_SETTINGS }}
+        run: |
+          printf '%s' "$SETTINGS" > out/settings.json
+          pac solution import --path out/managed.zip --settings-file out/settings.json \
+            --activate-plugins --force-overwrite --async --max-async-wait-time 30

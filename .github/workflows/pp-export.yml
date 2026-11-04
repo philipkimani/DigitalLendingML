@@ -1,0 +1,56 @@
+# Export the DigitalLendingOps solution from the Dev environment into source control.
+#
+# Run by hand (Actions → pp-export → Run workflow, on main). It exports the unmanaged and managed solution,
+# unpacks both into powerplatform/DigitalLendingOps (one folder, `--packagetype Both`) and pushes a branch
+# pp-export/<run number>; review the diff and merge it with a pull request, which triggers pp-deploy.
+#
+# Auth: no secret. The job's GitHub OIDC token is exchanged through the federated credential on the Entra app
+# lending-powerplatform-deploy (infra/entra.bicep), an application user in Dev (System Customizer).
+name: pp-export
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # push the export branch
+  id-token: write # request the OIDC token
+
+concurrency:
+  group: pp-export
+
+jobs:
+  export:
+    if: github.ref == 'refs/heads/main' # the federated credential trusts main only
+    runs-on: ubuntu-24.04
+    env:
+      SOLUTION: DigitalLendingOps
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Sign in to Dev
+        run: >-
+          pac auth create --githubFederated
+          --tenant "${{ secrets.AZURE_TENANT_ID }}"
+          --applicationId "${{ secrets.PP_DEPLOY_CLIENT_ID }}"
+          --environment "${{ secrets.PP_DEV_URL }}"
+
+      - name: Export and unpack
+        run: |
+          pac solution export --name "$SOLUTION" --path out/unmanaged.zip --overwrite
+          pac solution export --name "$SOLUTION" --path out/unmanaged_managed.zip --managed --overwrite
+          rm -rf "powerplatform/$SOLUTION"
+          pac solution unpack --zipfile out/unmanaged.zip --folder "powerplatform/$SOLUTION" \
+            --packagetype Both --allowDelete --allowWrite --processCanvasApps
+
+      - name: Push branch
+        run: |
+          git add "powerplatform/$SOLUTION"
+          if git diff --cached --quiet; then echo "No changes in Dev since the last export."; exit 0; fi
+          branch="pp-export/${{ github.run_number }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -m "Export $SOLUTION from Dev (run ${{ github.run_number }})"
+          git push origin "$branch"
+          echo "Open a pull request: ${{ github.server_url }}/${{ github.repository }}/compare/main...$branch" >> "$GITHUB_STEP_SUMMARY"

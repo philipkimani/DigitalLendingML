@@ -36,14 +36,12 @@ param parameterApprovers array = []
 param apiIdentityPrincipalId string
 
 // The Power Platform custom connector (api/connector.swagger.json) signs people in through its own app.
-// Its redirect URL and managed identity exist only once the connector is saved, so a first deploy leaves them
-// empty and a second one fills them in.
-@description('Redirect URL shown on the custom connector\'s Security tab.')
-param connectorRedirectUri string = ''
-@description('Issuer of the custom connector\'s managed identity (connector Security tab).')
-param connectorIssuer string = ''
-@description('Subject of the custom connector\'s managed identity (connector Security tab).')
-param connectorSubject string = ''
+// Every environment holding the connector (dev, test, ...) has its own redirect URL and managed identity, which
+// exist only once the connector is saved there: add the environment's entry and redeploy. The issuer is always
+// this tenant's v2.0 endpoint. `name` names the federated credential; never rename an existing one (Entra
+// refuses a second credential with the same subject).
+@description('One entry per environment: { name, redirectUri, subject } from the connector\'s Security tab.')
+param connectors array = []
 
 var azureCliClientId = '04b07795-8ddb-461a-bbee-02f9e1bf7b46' // Microsoft Azure CLI, a first-party public client
 var postgresAppId = '123cd850-d9df-40bd-94d5-c9f07b7fa203' // Azure OSSRDBMS Database, first-party (same in every tenant)
@@ -168,7 +166,7 @@ resource connector 'Microsoft.Graph/applications@v1.0' = {
   uniqueName: '${appName}-connector'
   displayName: '${appName}-connector'
   signInAudience: 'AzureADMyOrg'
-  web: { redirectUris: empty(connectorRedirectUri) ? [] : [connectorRedirectUri] }
+  web: { redirectUris: [for c in connectors: c.redirectUri] }
   requiredResourceAccess: [
     { resourceAppId: app.appId, resourceAccess: [{ id: scopeId, type: 'Scope' }] }
   ]
@@ -187,13 +185,41 @@ resource connectorConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = {
   scope: 'access_as_user'
 }
 
-resource connectorIdentity 'Microsoft.Graph/applications/federatedIdentityCredentials@v1.0' = if (!empty(connectorSubject)) {
-  name: '${connector.uniqueName}/power-platform-connector'
-  issuer: connectorIssuer
-  subject: connectorSubject
+@batchSize(1) // Graph rejects parallel writes to one application's federated credentials
+resource connectorIdentity 'Microsoft.Graph/applications/federatedIdentityCredentials@v1.0' = [
+  for c in connectors: {
+    name: '${connector.uniqueName}/${c.name}'
+    issuer: '${environment().authentication.loginEndpoint}${tenant().tenantId}/v2.0'
+    subject: c.subject
+    audiences: ['api://AzureADTokenExchange']
+  }
+]
+
+// --- Power Platform deploy identity: GitHub Actions exports/imports the DigitalLendingOps solution -------------
+// No secret: the main-branch workflow presents GitHub's OIDC token through a federated credential. No Entra API
+// permissions either: Dataverse authorises it as an application user, added per environment by an admin
+// (System Customizer in Dev to export, System Administrator in Test to import managed solutions).
+@description('Repository whose main-branch workflows may deploy, as GitHub\'s token subject names it: <owner>@<owner id>/<repo>@<repo id>.')
+param githubRepo string
+
+resource ppDeploy 'Microsoft.Graph/applications@v1.0' = {
+  uniqueName: 'lending-powerplatform-deploy'
+  displayName: 'lending-powerplatform-deploy'
+  signInAudience: 'AzureADMyOrg'
+}
+
+resource ppDeploySp 'Microsoft.Graph/servicePrincipals@v1.0' = {
+  appId: ppDeploy.appId
+}
+
+resource ppDeployGithub 'Microsoft.Graph/applications/federatedIdentityCredentials@v1.0' = {
+  name: '${ppDeploy.uniqueName}/github-main'
+  issuer: 'https://token.actions.githubusercontent.com'
+  subject: 'repo:${githubRepo}:ref:refs/heads/main'
   audiences: ['api://AzureADTokenExchange']
 }
 
+output ppDeployClientId string = ppDeploy.appId
 output connectorClientId string = connector.appId
 output apiClientId string = app.appId
 output tenantId string = tenant().tenantId
