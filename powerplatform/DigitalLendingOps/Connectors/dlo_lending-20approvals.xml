@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Connector xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <connectorid>78f055e8-3a9e-4dd8-9695-2b9add9fefbd</connectorid>
+  <description>Maker-checker approvals for the lending model's parameter sets. Every call runs as the signed-in person; the database decides who may approve.</description>
+  <displayname>Lending approvals</displayname>
+  <iconbrandcolor>#007ee5</iconbrandcolor>
+  <name>dlo_lending-20approvals</name>
+  <connectortype>1</connectortype>
+  <openapidefinition>/Connector/dlo_lending-20approvals_openapidefinition.json</openapidefinition>
+  <connectionparameters>/Connector/dlo_lending-20approvals_connectionparameters.json</connectionparameters>
+  <policytemplateinstances>/Connector/dlo_lending-20approvals_policytemplateinstances.json</policytemplateinstances>
+  <iconblob>/Connector/dlo_lending-20approvals_iconblob.Jpeg</iconblob>
+</Connector>

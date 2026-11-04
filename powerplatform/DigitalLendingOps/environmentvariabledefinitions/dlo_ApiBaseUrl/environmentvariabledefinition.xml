@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="dlo_ApiBaseUrl">
+  <defaultvalue>https://ca-digitallending-dev-api.livelytree-dce06fb3.southafricanorth.azurecontainerapps.io</defaultvalue>
+  <displayname default="Api Base Url">
+    <label description="Api Base Url" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

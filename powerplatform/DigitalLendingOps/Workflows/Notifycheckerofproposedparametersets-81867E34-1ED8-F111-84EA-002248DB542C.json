@@ -1,0 +1,156 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_lending-20approvals-5fcd8516884fb67f13-5f9e2a1a6473873124": {
+        "runtimeSource": "invoker",
+        "connection": {
+          "connectionReferenceLogicalName": "dlo_sharedlending20approvals5fcd8516884fb67f135f9e2a1a6473873124_15178"
+        },
+        "api": {
+          "name": "shared_lending-20approvals-5fcd8516884fb67f13-5f9e2a1a6473873124",
+          "logicalName": "dlo_lending-20approvals"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "invoker",
+        "connection": {
+          "connectionReferenceLogicalName": "dlo_sharedoffice365_c6b57"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "0dcdb6c8-5eb8-42a5-8b26-fd8dca3191f6"
+          },
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        }
+      },
+      "actions": {
+        "List_parameter_sets": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "2aa8f43c-7b2b-4436-9d76-35a7b60d90af"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_lending-20approvals-5fcd8516884fb67f13-5f9e2a1a6473873124",
+              "operationId": "ListParameterSets",
+              "apiId": ""
+            },
+            "parameters": {},
+            "authentication": {
+              "type": "Raw",
+              "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']"
+            }
+          }
+        },
+        "Filter_array": {
+          "runAfter": {
+            "List_parameter_sets": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "85373ac3-1873-482a-9b34-452946f5d37f"
+          },
+          "type": "Query",
+          "inputs": {
+            "from": "@body('List_parameter_sets')",
+            "where": "@equals(item()?['status'], 'proposed')"
+          }
+        },
+        "Select": {
+          "runAfter": {
+            "Filter_array": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "2a107c80-23cf-48db-b7f8-1a05ba53e156"
+          },
+          "type": "Select",
+          "inputs": {
+            "from": "@body('List_parameter_sets')",
+            "select": {
+              "Set": "@item()?['param_version']",
+              "Note": "@item()?['note']",
+              "Proposed by": "@item()?['maker']",
+              "Budget": "@item()?['params']?['budget']"
+            }
+          }
+        },
+        "Create_HTML_table": {
+          "runAfter": {
+            "Select": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "e3fc286d-681a-4882-a612-f90ef3e4efe5"
+          },
+          "type": "Table",
+          "inputs": {
+            "from": "@body('Select')",
+            "format": "HTML"
+          }
+        },
+        "Send_an_email_(V2)": {
+          "runAfter": {
+            "Create_HTML_table": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "b1a4000f-81ab-485c-b104-17468a9a445c"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_office365",
+              "operationId": "SendEmailV2",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+            },
+            "parameters": {
+              "emailMessage/To": "philipkimanidev@gmail.com",
+              "emailMessage/Subject": "Parameter sets awaiting a checker",
+              "emailMessage/Body": "<p>Open the Lending approvals app to review:<br>\n@{body('Create_HTML_table')}</p>",
+              "emailMessage/Importance": "Normal"
+            },
+            "authentication": {
+              "type": "Raw",
+              "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']"
+            }
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

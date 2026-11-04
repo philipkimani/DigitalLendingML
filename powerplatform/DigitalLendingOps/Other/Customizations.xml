@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26103.149" OrganizationSchemaType="Standard" CRMServerServiceabilityVersion="9.2.26103.00149">
+  <Entities />
+  <Roles />
+  <Workflows />
+  <FieldSecurityProfiles />
+  <Templates />
+  <EntityMaps />
+  <EntityRelationships />
+  <OrganizationSettings />
+  <optionsets />
+  <CustomControls />
+  <EntityDataProviders />
+  <CanvasApps />
+  <Connectors />
+  <connectionreferences>
+    <connectionreference connectionreferencelogicalname="dlo_sharedlending20approvals5fcd8516884fb67f135f9e2a1a6473873124_15178">
+      <connectionreferencedisplayname>Lending approvals DigitalLendingOps-15178</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_lending-20approvals-5fcd8516884fb67f13-5f9e2a1a6473873124</connectorid>
+      <customconnectorid>
+        <connectorid>78f055e8-3a9e-4dd8-9695-2b9add9fefbd</connectorid>
+      </customconnectorid>
+      <iscustomizable>1</iscustomizable>
+      <promptingbehavior>0</promptingbehavior>
+      <statecode>0</statecode>
+      <statuscode>1</statuscode>
+    </connectionreference>
+    <connectionreference connectionreferencelogicalname="dlo_sharedoffice365_c6b57">
+      <connectionreferencedisplayname>Office 365 Outlook DigitalLendingOps-c6b57</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_office365</connectorid>
+      <iscustomizable>1</iscustomizable>
+      <promptingbehavior>0</promptingbehavior>
+      <statecode>0</statecode>
+      <statuscode>1</statuscode>
+    </connectionreference>
+  </connectionreferences>
+  <Languages>
+    <Language>1033</Language>
+  </Languages>
+</ImportExportXml>
