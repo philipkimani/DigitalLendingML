@@ -40,7 +40,7 @@ What is left to finish the build, in order. Detail for Phase 2 steps: `docs/arch
 
 ## Phase 2, remaining
 
-- [ ] 2.3 ALM: `DigitalLendingOps` solution in `powerplatform/`, managed import via GitHub Actions
+- [x] 2.3 ALM: `DigitalLendingOps` solution in `powerplatform/`, managed import via GitHub Actions
 - [ ] 2.4 Copilot Studio "Lending Analyst" agent (read-only), eval set in `copilot/evals/`
 - [ ] 2.5 API Management in front of the API
 - [ ] 2.6 Power BI portfolio report with row-level security
