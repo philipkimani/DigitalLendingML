@@ -31,8 +31,13 @@ jobs:
     env:
       SOLUTION: DigitalLendingOps
     steps:
-      - uses: actions/checkout@v4
-      - uses: microsoft/powerplatform-actions/actions-install@v1
+      - uses: actions/checkout@v5
+      - name: Install pac
+        # The powerplatform-actions installer keeps pac off PATH (for its own actions only); a pinned .NET tool
+        # gives the plain `pac` used here, same version as local.
+        run: |
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool --version 2.14.1
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
       - name: Pack managed solution
         run: >-
