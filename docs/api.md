@@ -10,6 +10,10 @@ All customer ids and values below are **synthetic** (the 30,000-customer seed bo
 | `POST /events` | Partner events, idempotent on `event_id` |
 | `GET /parameter-sets` | Parameter sets proposed, approved or active |
 | `POST /parameter-sets/{version}/{approve\|reject\|activate}` | Maker-checker step, performed as the caller |
+| `GET /portfolio` | Published run: offers, holds, reasons, capital, active parameters |
+| `GET /portfolio/scenarios` | Precomputed what-if results for the published run |
+| `GET /customers/{customer_id}/account` | A customer's next payment, review date and limit decision, in their own terms |
+| `POST /parameter-sets` | Propose a new budget, step or fee, as the caller |
 | `GET /healthz` | Liveness; never touches the database |
 
 ## Authentication
@@ -20,7 +24,9 @@ Every endpoint except `/healthz` needs an Entra ID access token for the `lending
 |---|---|
 | `GET /decisions/{customer_id}` | `Decisions.Read` |
 | `POST /events` | `Events.Write` |
-| `/parameter-sets` | `Parameters.Approve`, in a person's token (an application token gets 403) |
+| `/parameter-sets` | `Parameters.Approve` (listing also allows `Parameters.Propose`), in a person's token (an application token gets 403) |
+| `GET /portfolio`, `GET /portfolio/scenarios`, `GET /customers/{customer_id}/account` | `Decisions.Read` |
+| `POST /parameter-sets` | `Parameters.Propose`, in a person's token |
 
 ```bash
 token=$(az account get-access-token --scope <api client id>/.default --query accessToken -o tsv)

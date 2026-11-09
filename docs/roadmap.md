@@ -22,7 +22,7 @@ What is left to finish the build, in order. Detail for Phase 2 steps: `docs/arch
 - [x] 4 End-to-end in the browser as maker and as checker (propose → email → approve → activate → nightly run → live API)
 - [ ] Move the app, custom connector and flow to a developer environment on the Power Apps Developer Plan (custom connectors are premium; the checker runs on a 30-day Power Apps trial started 2026-11-01)
 - [x] Migration 005: a checker can move an approved set to rejected, so an approved set that must not go live has an exit
-- [ ] Optional: propose a parameter set through the API (today the maker uses psql)
+- [ ] Propose a parameter set through the API (part of 2.4)
 
 ## Next: model and ML
 
@@ -41,7 +41,9 @@ What is left to finish the build, in order. Detail for Phase 2 steps: `docs/arch
 ## Phase 2, remaining
 
 - [x] 2.3 ALM: `DigitalLendingOps` solution in `powerplatform/`, managed import via GitHub Actions
-- [ ] 2.4 Copilot Studio "Lending Analyst" agent (read-only), eval set in `copilot/evals/`
+- [ ] 2.4 Copilot Studio agents (`docs/superpowers/specs/2026-11-04-lending-agents-design.md`), eval sets in `copilot/evals/`
+  - [ ] Internal agent: decisions, portfolio, scenarios, start changes from chat; approval stays in the app
+  - [ ] Customer agent (demo): payments and how to increase a limit
 - [ ] 2.5 API Management in front of the API
 - [ ] 2.6 Power BI portfolio report with row-level security
 
@@ -49,6 +51,11 @@ Open decisions: M365 tenant for Teams / SharePoint / Power Platform; Copilot Stu
 
 ## Separate track
 
+- [ ] Conversation signals: extract signals from customer chats into a fixed schema with quotes, in shadow mode; test against repayment outcomes, with same-facts bias tests
+- [ ] Ring-fenced exploration budget: lend to customers the model would hold, to measure outcomes it never otherwise sees
+- [ ] Customer sign-in and an own-record endpoint, before any real customer uses the customer agent
+- [ ] Publish agents to a channel (pay-as-you-go billing, needs approval)
+- [ ] Legal review (Kenya Data Protection Act, digital credit rules, data location) before any real customer data
 - [ ] Mock customer app on top of the API (simulated customers check whether they qualify for an increase)
 
 Not planned: a nightly schedule. The nightly job is run by hand.

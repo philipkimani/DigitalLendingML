@@ -3,12 +3,14 @@
 // Deploy (as a user who can register applications), passing the people to assign at deploy time:
 //   az deployment group create -g rg-digitallending-dev -f infra/entra.bicep \
 //     -p decisionReaders='["<user object id>"]' eventWriters='["<user object id>"]' \
-//        parameterApprovers='["<user object id>"]' apiIdentityPrincipalId=<API managed identity principal id>
+//        parameterApprovers='["<user object id>"]' parameterProposers='["<user object id>"]' \
+//        apiIdentityPrincipalId=<API managed identity principal id>
 // (PowerShell mangles inline JSON: pass these in a parameters file.)
 // Outputs apiClientId and tenantId: the API validates tokens against them (set on the Container App).
 //
 // - App roles, not scopes, carry the permission: Decisions.Read (GET /decisions), Events.Write (POST /events),
-//   Parameters.Approve (/parameter-sets; users only, since approving is a person's act).
+//   Parameters.Approve (review /parameter-sets) and Parameters.Propose (POST /parameter-sets): users only, since
+//   approving and proposing are a person's acts.
 //   They can be assigned to users (for testing from a terminal) and to apps / managed identities (callers).
 // - appRoleAssignmentRequired: Entra issues tokens for this API only to principals assigned a role.
 // - access_as_user is the delegated scope a user token needs; the az CLI (a Microsoft public client, well-known
@@ -31,6 +33,9 @@ param eventWriters array = []
 
 @description('Object ids of users given Parameters.Approve (the database still requires them to be checkers).')
 param parameterApprovers array = []
+
+@description('Object ids of users given Parameters.Propose (the database still requires the lending_maker role).')
+param parameterProposers array = []
 
 @description('Principal (object) id of the API\'s managed identity: the credential the app uses for on-behalf-of.')
 param apiIdentityPrincipalId string
@@ -65,6 +70,12 @@ var roles = {
     displayName: 'Approve parameter sets'
     description: 'Review, approve, reject and activate model parameter sets, as yourself.'
   }
+  propose: {
+    id: guid(appName, 'Parameters.Propose')
+    value: 'Parameters.Propose'
+    displayName: 'Propose parameter sets'
+    description: 'Propose a change to the business choices in the model (budget, step, fee), as yourself.'
+  }
 }
 
 resource postgres 'Microsoft.Graph/servicePrincipals@v1.0' existing = {
@@ -82,7 +93,7 @@ resource app 'Microsoft.Graph/applications@v1.0' = {
       value: r.value.value
       displayName: r.value.displayName
       description: r.value.description
-      allowedMemberTypes: r.key == 'approve' ? ['User'] : ['User', 'Application']
+      allowedMemberTypes: contains(['approve', 'propose'], r.key) ? ['User'] : ['User', 'Application']
       isEnabled: true
     }
   ]
@@ -156,6 +167,14 @@ resource approvers 'Microsoft.Graph/appRoleAssignedTo@v1.0' = [
     principalId: p
     resourceId: sp.id
     appRoleId: roles.approve.id
+  }
+]
+
+resource proposers 'Microsoft.Graph/appRoleAssignedTo@v1.0' = [
+  for p in parameterProposers: {
+    principalId: p
+    resourceId: sp.id
+    appRoleId: roles.propose.id
   }
 ]
 

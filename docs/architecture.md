@@ -124,7 +124,7 @@ Dev Postgres has public access with **Entra-only authentication** (no passwords)
 
 Each item serves a real need of the lending system: approvals, explanations, API security, the dashboard. **Prerequisite: Phase 1 decision API is live.** Documentation only until each step is approved.
 
-Order: **2.1 Entra → 2.2 approvals → 2.3 ALM → 2.4 Copilot agent → 2.5 APIM → 2.6 Power BI.** Entra comes first because the custom connector and the approval flow authenticate through it.
+Order: **2.1 Entra → 2.2 approvals → 2.3 ALM → 2.4 Copilot agents → 2.5 APIM → 2.6 Power BI.** Entra comes first because the custom connector and the approval flow authenticate through it.
 
 ```mermaid
 flowchart LR
@@ -157,7 +157,7 @@ flowchart LR
 | 2.1 Entra | App registration for the API with an API scope (`Decisions.Read`, `Parameters.Propose`, `Parameters.Approve`); one for the custom connector (delegated OAuth). Jobs keep managed identities. | Least privilege; an ownership table of every identity and credential in `docs/identities.md`. |
 | 2.2 Approvals | Analyst proposes a parameter set → Teams adaptive-card approval to a checker (who cannot be the maker) → on approve, connector calls the API to flip `parameter_sets.status`, with an audit row. | Input validation, retries/timeouts, failure branch notifying the analyst. Nightly-run failures also post to Teams. |
 | 2.3 ALM | One solution, `DigitalLendingOps`: unmanaged in dev, exported/unpacked with `pac` into `powerplatform/`, imported **managed** into test/prod by GitHub Actions (`microsoft/powerplatform-actions`). | Environment variables: API base URL, SharePoint site. Connection references: Teams, Approvals, custom connector. Post-import smoke flow; rollback = re-import previous managed version. |
-| 2.4 Copilot agent | "Lending Analyst" in Teams: "why was customer X held?", "how much capital is left?" (connector actions on `GET /decisions` + reason codes); "what does γ mean?" (grounded in the model documentation in SharePoint, permission-aware). | **Read-only.** Any change goes through 2.2. Eval set in `copilot/evals/` (groundedness, refusal on unsupported questions, latency, cost per answer). Later option: a Foundry agent with AI Search that Copilot Studio calls. |
+| 2.4 Copilot agents | **Internal agent:** "why was customer X held?", "how much capital is left?", what-if scenarios, "what does γ mean?" (uploaded model documentation), and starting a change. **Customer agent (demo):** next payment, review date, how to increase a limit. | Each agent has its own connector holding only its tools. No agent can approve: chat proposes and links to the approvals app, and the database enforces maker-checker. Only business choices can be proposed through the API. Eval sets in `copilot/evals/`. Customer identity is typed in chat: a demo stopgap that needs sign-in before real use. Later option: a Foundry agent with AI Search that Copilot Studio calls. |
 | 2.5 APIM | Consumption tier in front of the decision API (and any Foundry model endpoint). | Entra JWT validation, rate/token limits (AI gateway policies), per-consumer metrics to App Insights. Azure Monitor alerts: failed nightly job, failed flows, API 5xx. |
 | 2.6 Power BI | Portfolio report: offers, NPV, capital vs budget, λ*, PSI drift, champion vs challenger. | Row-level security by role. Replaces the Next.js dashboard. |
 
