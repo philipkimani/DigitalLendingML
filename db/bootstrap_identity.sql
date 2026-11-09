@@ -5,7 +5,8 @@
 --   psql "host=<server>.postgres.database.azure.com dbname=postgres user=<admin upn> sslmode=require" \
 --        -v ON_ERROR_STOP=1 -v identity=<name> -v role=<group role> [-v oid=<object id>] -f db/bootstrap_identity.sql
 -- identity: a managed identity's display name or a user's UPN; Postgres resolves it in Entra.
--- role:     lending_app (the API / nightly job identity) or lending_checker (a human approver).
+-- role:     lending_app (the API / nightly job identity), lending_checker (a human approver) or
+--           lending_maker (a human who proposes through the API).
 -- oid:      for a person who approves through the API: their Entra object id. The API finds a caller's
 --           database login by this id (api/main.py, LOGIN_ROLE_SQL), since a token's names don't reliably
 --           match role names (guests). Re-running with only -v oid set labels an existing role.
