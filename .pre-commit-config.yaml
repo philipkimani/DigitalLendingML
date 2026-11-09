@@ -11,8 +11,9 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: end-of-file-fixer
+        exclude: ^powerplatform/     # pac export output: never edit by hand (it is re-exported, not maintained)
       - id: trailing-whitespace
-        exclude: \.md$
+        exclude: \.md$|^powerplatform/
 
   - repo: https://github.com/gitleaks/gitleaks   # secret scanner: keys, tokens, connection strings
     rev: v8.30.0
