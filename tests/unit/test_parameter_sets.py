@@ -31,6 +31,7 @@ SET = {
 
 class FakeStore:
     refusal: Exception | None = None
+    has_active = True
 
     def in_play(self):
         return [SET]
@@ -42,6 +43,11 @@ class FakeStore:
             raise LookupError(version)
         return SET | {"status": {"approve": "approved", "reject": "rejected", "activate": "active"}[action]}
 
+    def propose(self, changes, note):
+        if self.refusal:
+            raise self.refusal
+        return SET | {"param_version": 86, "note": note, "params": {"budget": 300000.0}} if self.has_active else None
+
 
 store = FakeStore()
 install()
@@ -51,6 +57,7 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def fake_store():
     store.refusal = None
+    store.has_active = True
     app.dependency_overrides[parameter_store] = lambda: store
     yield
     app.dependency_overrides.clear()
@@ -110,3 +117,82 @@ def test_connector_definition_matches_the_api():
         assert set(ops) <= set(openapi["paths"][template]), path
     fields = openapi["components"]["schemas"]["ParameterSet"]["properties"]
     assert set(swagger["definitions"]["ParameterSet"]["properties"]) == set(fields)
+
+
+PROPOSE = {"budget": 300000, "note": "more capital for Q1"}
+
+
+def propose(headers, body=PROPOSE):
+    return client.post("/parameter-sets", json=body, headers=headers)
+
+
+def maker():
+    return auth(["Parameters.Propose"], **PERSON)
+
+
+def test_maker_proposes():
+    r = propose(maker())
+    assert r.status_code == 201
+    assert r.json()["param_version"] == 86
+
+
+def test_only_business_choices_can_be_proposed():
+    assert propose(maker(), {"lgd": 0.3, "note": "x"}).status_code == 422
+    assert propose(maker(), {"budget": 300000, "kappa": 0.1, "note": "x"}).status_code == 422
+
+
+def test_a_proposal_needs_a_change_and_a_note():
+    assert propose(maker(), {"note": "nothing changes"}).status_code == 422
+    assert propose(maker(), {"budget": 300000}).status_code == 422
+    assert propose(maker(), {"budget": -1, "note": "x"}).status_code == 422
+
+
+def test_proposing_needs_the_role_and_a_person():
+    assert propose(auth(["Parameters.Approve"], **PERSON)).status_code == 403
+    assert propose(auth(["Parameters.Propose"], oid=PERSON["oid"])).status_code == 403
+    assert propose({}).status_code == 401
+
+
+def test_a_maker_cannot_approve_but_can_list():
+    assert approve(maker()).status_code == 403
+    assert client.get("/parameter-sets", headers=maker()).status_code == 200
+
+
+def test_no_active_set_to_copy_is_409():
+    store.has_active = False
+    assert propose(maker()).status_code == 409
+
+
+def test_database_refusal_of_a_proposal():
+    store.refusal = psycopg.errors.CheckViolation("new row violates check")
+    assert propose(maker()).status_code == 409
+    store.refusal = psycopg.errors.InsufficientPrivilege("permission denied")
+    assert propose(maker()).status_code == 403
+
+
+def test_propose_sql_copies_every_model_parameter():
+    from dataclasses import fields
+
+    from api.main import MODEL_COLUMNS
+    from lending.params import Params
+
+    expected = {f.name for f in fields(Params)} - {"K"} | {"k_prime", "k_near", "k_sub"}
+    assert set(MODEL_COLUMNS) == expected
+
+
+def test_agent_connectors_match_the_api_and_hold_no_review_action():
+    root = Path(__file__).parents[2] / "api"
+    openapi = app.openapi()
+    allowed = {"connector.analyst.swagger.json": 5, "connector.customer.swagger.json": 1}
+    for name, operations in allowed.items():
+        swagger = json.loads((root / name).read_text())
+        ops = [(p, m) for p, methods in swagger["paths"].items() for m in methods]
+        assert len(ops) == operations, name
+        for path, method in ops:
+            assert method in openapi["paths"][path], (name, path)
+            assert not re.search(r"approve|reject|activate", path), (name, path)
+
+
+def test_customer_connector_exposes_only_the_account():
+    swagger = json.loads((Path(__file__).parents[2] / "api" / "connector.customer.swagger.json").read_text())
+    assert list(swagger["paths"]) == ["/customers/{customer_id}/account"]

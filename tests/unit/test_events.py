@@ -119,3 +119,25 @@ def test_payload_is_stored_in_one_canonical_form():
     same_instant = REPAY | {"due_at": "2026-10-30T20:59:00Z", "amount": 1200.0}
     r = client.post("/events", json=[event("e1", payload=same_instant)])
     assert r.json() == {"accepted": 0, "duplicate": 1}
+
+
+def disburse(payload):
+    return {
+        "event_id": "D-due",
+        "customer_id": 7,
+        "event_type": "disburse",
+        "occurred_at": "2026-10-01T09:00:00+00:00",
+        "payload": payload,
+    }
+
+
+def test_disbursement_may_carry_a_due_date():
+    r = client.post("/events", json=[disburse({"loan_id": "L9", "amount": 900, "due_at": "2026-11-30T00:00:00+00:00"})])
+    assert r.status_code == 200
+    assert stored["D-due"]["payload"]["due_at"] == "2026-11-30T00:00:00+00:00"
+
+
+def test_disbursement_without_a_due_date_stores_no_key():
+    # Older events have no due_at key: a retry of one must still match what is stored, so null is not written.
+    assert client.post("/events", json=[disburse({"loan_id": "L9", "amount": 900})]).status_code == 200
+    assert "due_at" not in stored["D-due"]["payload"]

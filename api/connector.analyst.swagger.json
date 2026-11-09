@@ -1,0 +1,100 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Lending analyst",
+    "version": "1.0",
+    "description": "Internal agent's tools: read decisions, the portfolio and what-if scenarios, and propose changes. It has no approve, reject or activate action. Every call runs as the signed-in person."
+  },
+  "host": "API_HOST",
+  "basePath": "/",
+  "schemes": ["https"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "securityDefinitions": {
+    "oauth2-auth": {
+      "type": "oauth2",
+      "flow": "accessCode",
+      "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/authorize",
+      "tokenUrl": "https://login.microsoftonline.com/common/oauth2/authorize",
+      "scopes": {}
+    }
+  },
+  "security": [{ "oauth2-auth": [] }],
+  "paths": {
+    "/decisions/{customer_id}": {
+      "get": {
+        "operationId": "GetDecision",
+        "summary": "Get a customer's decision",
+        "description": "Use when asked whether a customer is offered or held, or why. Returns the action, the reason in plain words, and the values compared.",
+        "parameters": [
+          { "name": "customer_id", "in": "path", "required": true, "type": "integer", "x-ms-summary": "Customer id", "description": "The customer's numeric id." }
+        ],
+        "responses": {
+          "200": { "description": "The decision", "schema": { "type": "object" } },
+          "404": { "description": "No decision for this customer" }
+        }
+      }
+    },
+    "/portfolio": {
+      "get": {
+        "operationId": "GetPortfolio",
+        "summary": "Get the portfolio summary",
+        "description": "Use for offers and holds, reasons, capital used, budget, capital left, the capital price, and current parameter values. Capital used is a simulated estimate.",
+        "responses": {
+          "200": { "description": "The published run's summary", "schema": { "type": "object" } },
+          "404": { "description": "No published run" }
+        }
+      }
+    },
+    "/portfolio/scenarios": {
+      "get": {
+        "operationId": "GetScenarios",
+        "summary": "Get what-if scenarios",
+        "description": "Use to compare the effect of a different budget, step or fee on offers, capital, NPV and defaults. Results are precomputed simulated estimates for specific values only.",
+        "responses": {
+          "200": { "description": "Scenario results", "schema": { "type": "object" } },
+          "404": { "description": "No published run" }
+        }
+      }
+    },
+    "/parameter-sets": {
+      "get": {
+        "operationId": "ListParameterSets",
+        "summary": "List parameter sets",
+        "description": "Use to see sets waiting for review or in force, and the status of a proposal.",
+        "responses": {
+          "200": { "description": "Parameter sets, newest first", "schema": { "type": "array", "items": { "type": "object" } } },
+          "403": { "description": "The caller may not see parameter sets" }
+        }
+      },
+      "post": {
+        "operationId": "ProposeParameterSet",
+        "summary": "Propose a parameter change",
+        "description": "Creates a proposed set from the active one with a new budget, step or fee. Only call after the person has confirmed the exact change in this conversation. It does not approve or activate anything.",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["note"],
+              "properties": {
+                "note": { "type": "string", "x-ms-summary": "Why", "description": "Why this change is proposed, in the person's words." },
+                "budget": { "type": "number", "format": "float", "x-ms-summary": "Capital budget", "description": "New risk-weighted capital budget in USD." },
+                "step": { "type": "number", "format": "float", "x-ms-summary": "Increase step", "description": "Each increase as a share of the initial loan, for example 0.15." },
+                "fee": { "type": "number", "format": "float", "x-ms-summary": "Fee", "description": "Fee per accepted increase in USD." }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": { "description": "The proposed set", "schema": { "type": "object", "properties": { "param_version": { "type": "integer", "format": "int32", "x-ms-summary": "Version" }, "status": { "type": "string", "x-ms-summary": "Status" } } } },
+          "403": { "description": "The caller may not propose" },
+          "409": { "description": "Refused by the database, with its reason" },
+          "422": { "description": "Not a change this endpoint accepts" }
+        }
+      }
+    }
+  }
+}

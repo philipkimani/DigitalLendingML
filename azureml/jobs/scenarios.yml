@@ -1,0 +1,17 @@
+# Azure ML command job: one manual run of jobs/scenarios.py on the scale-to-zero CPU cluster.
+#
+# Run after a nightly job has published. The identity's client id and the server name are passed at submit time:
+#   az ml job create -f azureml/jobs/scenarios.yml -g rg-digitallending-dev -w mlw-digitallending-dev \
+#     --set environment_variables.AZURE_CLIENT_ID=<client id of id-digitallending-dev> \
+#           environment_variables.PGHOST=<server>.postgres.database.azure.com
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+experiment_name: scenarios
+display_name: what-if-scenarios
+code: ../..                         # repo root; .amlignore keeps the upload to src/ and jobs/
+command: >-
+  PYTHONPATH=src python jobs/scenarios.py
+environment: azureml:lending-nightly:1
+compute: azureml:cpu-cluster
+environment_variables:
+  PGUSER: id-digitallending-dev

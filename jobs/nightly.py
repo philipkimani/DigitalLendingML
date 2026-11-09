@@ -105,12 +105,13 @@ def main() -> None:
         pol, _, q = solve(part, model, lam)
         parts.append(explain(part, pol, q, solve(part, model, 0.0)[0]))
     decisions = pd.concat(parts)
+    capital_used = capital(book, model, lam, chunk=args.chunk)
     metrics = {
         "lambda": lam,
         "customers": len(decisions),
         "customers_dropped": dropped,
         "offers": int((decisions.action == "offer").sum()),
-        "capital_used": capital(book, model, lam, chunk=args.chunk),
+        "capital_used": capital_used,
         "capital_budget": model.p.budget,
         **{f"offer_rate_bucket_{b}": float((g.action == "offer").mean()) for b, g in decisions.groupby("bucket")},
         **{f"reason_{c}": int(n) for c, n in decisions.reason_code.value_counts().items()},
@@ -120,9 +121,9 @@ def main() -> None:
     pv, mv = param_row["param_version"], args.model_version
     with connect() as conn, conn.cursor() as cur:
         row = cur.execute(
-            "INSERT INTO runs (param_version, model_version, data_version, lambda, state_as_of)"
-            " VALUES (%s, %s, %s, %s, %s) RETURNING run_id",
-            (pv, mv, data_version, lam, as_of),
+            "INSERT INTO runs (param_version, model_version, data_version, lambda, state_as_of, capital_used)"
+            " VALUES (%s, %s, %s, %s, %s, %s) RETURNING run_id",
+            (pv, mv, data_version, lam, as_of, capital_used),
         ).fetchone()
         if row is None:  # RETURNING always gives a row; this guards the type, and fails loudly if it ever doesn't
             raise SystemExit("INSERT INTO runs returned no run_id")
