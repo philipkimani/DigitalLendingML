@@ -49,7 +49,7 @@
                 "ontime_target": { "type": "integer", "format": "int32", "x-ms-summary": "Next on-time target" },
                 "decision": { "type": "string", "x-ms-summary": "Decision" },
                 "message": { "type": "string", "x-ms-summary": "Message for the customer" },
-                "new_limit": { "type": "number", "format": "float", "x-ms-summary": "New limit" }
+                "new_limit": { "type": "number", "format": "float", "x-nullable": true, "x-ms-summary": "New limit", "description": "Only when an increase is offered." }
               }
             }
           },

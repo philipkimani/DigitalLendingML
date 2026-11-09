@@ -54,6 +54,15 @@ def test_overdue_payment():
     assert v["next_payment"]["status"] == "overdue"
 
 
+def test_dates_are_whole_seconds():
+    # Power Platform's date-time check rejects microsecond timestamps; a customer never needs them.
+    jitter = timedelta(microseconds=587157)
+    loan = LOAN | {"occurred_at": LOAN["occurred_at"] + jitter, "due_at": LOAN["due_at"] + jitter}
+    v = account_view(CUSTOMER, loan, NOW)
+    assert v["next_payment"]["due_at"].microsecond == 0
+    assert v["eligible_from"].microsecond == 0
+
+
 def test_repaid_or_undated_loan_has_no_next_payment():
     assert account_view(CUSTOMER, LOAN | {"repaid": True}, NOW)["next_payment"] is None
     assert account_view(CUSTOMER, LOAN | {"due_at": None}, NOW)["next_payment"] is None

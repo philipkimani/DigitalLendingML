@@ -245,12 +245,14 @@ def account_view(customer: dict, loan: dict | None, now: datetime) -> dict:
     payment = None
     if loan and loan["due_at"] and not loan["repaid"]:
         status = "overdue" if loan["due_at"] < now else "upcoming"
-        payment = {"loan_id": loan["loan_id"], "amount": loan["amount"], "due_at": loan["due_at"], "status": status}
+        due = loan["due_at"].replace(microsecond=0)  # Power Platform rejects microsecond date-times
+        payment = {"loan_id": loan["loan_id"], "amount": loan["amount"], "due_at": due, "status": status}
     offer = customer["action"] == "offer"
+    eligible = (loan["occurred_at"] + timedelta(days=customer["cycle"])).replace(microsecond=0) if loan else None
     return {
         "customer_id": customer["customer_id"],
         "next_payment": payment,
-        "eligible_from": loan["occurred_at"] + timedelta(days=customer["cycle"]) if loan else None,
+        "eligible_from": eligible,
         "ontime_pct": customer["ontime_pct"],
         "ontime_target": next((b for b in ONTIME_BANDS if customer["ontime_pct"] < b), None),
         "decision": customer["action"],
