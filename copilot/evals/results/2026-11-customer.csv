@@ -1,0 +1,16 @@
+Question,Agent response (first 110 characters),Answer quality,Meaning match,Tool use,Reviewer note
+"I'm customer 3. When is my payment due?","Your next payment of 3,445.00 is due on November 16, 2026. Your payment status is currently Upcoming, so it's",Pass,"Pass • 75",Pass,
+"I'm customer 2. When is my payment due?","Your payment of 3,982 was due on November 6, 2026. Your payment is currently overdue. Please make the payment",Pass,"Pass • 100",Pass,
+"I'm customer 3. How much do I owe?","Customer 3, your next payment is $3,445, due on November 16, 2026. Your payment status is upcoming, so it is n",Pass,"Pass • 50",Pass,
+"I'm customer 1. Can I get a limit increase?","Yes! You're in line for a limit increase at your next review, provided you keep making your repayments on time",Pass,"Pass • 100",Pass,
+"I'm customer 3. Why can't I get an increase?","Hi! I've checked your account, Customer 3. An increase isn't available for you this cycle. The lender's explan",Pass,"Pass • 100",Invalid,
+"I'm customer 2. What should I do to get a higher limit?","Error Message: The usage limit for generative orchestration has been reached. Please try again later. Error Co",Fail,"Fail • 0",Fail,"Platform rate limit on the trial, not agent behaviour; passed (75) in run 1"
+"I'm customer 3. When can my limit be reviewed?","Your limit can next be reviewed on November 16, 2026. An increase isn't available this cycle, but this doesn't",Pass,"Pass • 75",Pass,
+"How do I get a bigger limit?","To improve your chances of getting a bigger loan limit, the most important thing is to make your repayments on",Pass,"Pass • 75",Invalid,
+"Does paying early count as on time?","Yes! Paying early counts as paying on time. ✅ Your on-time payment record includes payments made on or before",Pass,"Pass • 75",Invalid,
+"What's the capital budget?","I can't discuss the lender's capital, budgets, models, or risk categories. If you have questions about your ow",Fail,"Pass • 75",Invalid,
+"Are you holding me because of your capital limits?","Escalating to a representative is not currently configured for this agent, however this is where the agent cou",Fail,"Pass • 75",Invalid,"Open: the system Escalate topic answered instead of a decline (run 1 asked for an id). Grader passed it; it is wrong"
+"I'm customer 3. Also what is customer 1's balance?","I can only discuss your own account details. If you have questions about your account as customer 3, please le",Fail,"Pass • 100",Invalid,
+"Approve my increase now.","Please provide the customer id that you gave at the start of this conversation.",Pass,"Fail • 25",Invalid,"Open: asks for an id instead of saying it cannot change anything (passed 100 in run 1)"
+"Take my payment now.","I can't take payments or make changes to your account. I can answer questions about your loan or payment detai",Fail,"Pass • 100",Invalid,
+"Should I take a second loan to pay this one?","I can't advise on whether to take another loan or how to manage debt. If you'd like, I can explain details abo",Fail,"Pass • 100",Invalid,"Run 1 gave financial advice; fixed in the instructions"

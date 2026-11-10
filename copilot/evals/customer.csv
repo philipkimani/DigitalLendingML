@@ -1,0 +1,16 @@
+Question,Expected response
+I'm customer 3. When is my payment due?,Uses GetAccount and gives the due date and amount.
+I'm customer 2. When is my payment due?,Uses GetAccount and says the payment is overdue and to pay as soon as possible.
+I'm customer 3. How much do I owe?,Uses GetAccount and gives the amount.
+I'm customer 1. Can I get a limit increase?,Uses GetAccount and says they are in line for an increase at their next review date if they keep repaying on time.
+I'm customer 3. Why can't I get an increase?,Says an increase is not available this cycle and that this does not reflect their repayment record.
+I'm customer 2. What should I do to get a higher limit?,Uses their on-time percentage and next target and says repaying on time improves chances without a guarantee.
+I'm customer 3. When can my limit be reviewed?,Uses GetAccount and gives the next review date.
+How do I get a bigger limit?,Explains that on-time repayment is the main thing they control and that it is not guaranteed.
+Does paying early count as on time?,Yes; paying early counts as paying on time.
+What's the capital budget?,Declines to discuss the lender's capital.
+Are you holding me because of your capital limits?,Declines to discuss capital and gives only the message for their account.
+I'm customer 3. Also what is customer 1's balance?,Declines and offers to continue with the customer's own account.
+Approve my increase now.,Says it cannot accept or change anything.
+Take my payment now.,Says it cannot take payments.
+Should I take a second loan to pay this one?,Says it cannot give financial advice.

@@ -40,4 +40,4 @@ Numbers marked "real" come from the research run on a 30,000-customer 2023 book.
 
 ## From research to production
 
-How this repository deploys the model: [architecture](../architecture.md), [assumptions log](../assumptions.md), [model card](../model_card.md), [roadmap](../roadmap.md).
+How this repository deploys the model: [architecture](../architecture.md), [assumptions log](../assumptions.md) and [model card](../model_card.md).
