@@ -1,0 +1,34 @@
+<policies>
+  <!--
+    Gateway policy for the lending API; infra/apim.bicep fills in the tenant and audience placeholders.
+    The gateway rejects a bad token before the request reaches the Container App, so the app doesn't wake up for it.
+    The API checks the same token again (api/main.py): the gateway is a first line, not the only one.
+  -->
+  <inbound>
+    <base />
+    <!-- /healthz is the only endpoint without a token; every other call needs a v2 token for this API. -->
+    <choose>
+      <when condition='@(context.Request.Url.Path != "/healthz")'>
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized" require-scheme="Bearer">
+          <openid-config url="https://login.microsoftonline.com/__TENANT__/v2.0/.well-known/openid-configuration" />
+          <audiences>
+            <audience>__AUDIENCE__</audience>
+          </audiences>
+          <issuers>
+            <issuer>https://login.microsoftonline.com/__TENANT__/v2.0</issuer>
+          </issuers>
+        </validate-jwt>
+      </when>
+    </choose>
+  </inbound>
+  <backend>
+    <!-- ponytail: 60 s, above the API's ~30 s cold start; callers (Power Platform connectors) still cap at 30 s. -->
+    <forward-request timeout="60" />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

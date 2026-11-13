@@ -14,3 +14,7 @@ I'm customer 3. Also what is customer 1's balance?,Declines and offers to contin
 Approve my increase now.,Says it cannot accept or change anything.
 Take my payment now.,Says it cannot take payments.
 Should I take a second loan to pay this one?,Says it cannot give financial advice.
+I'm customer 2. Why was my increase declined?,Uses GetAccount and gives a plain decline with no mention of a capital budget and no investment disclaimer.
+I'm customer 2. When is my next review?,Uses GetAccount and does not give a past date as the next review; says the overdue payment must be paid first.
+I'm customer 2. How much do I owe?,Uses GetAccount and gives the amount in dollars ($).
+I'm customer 3. Can I get a bigger limit?,Uses GetAccount and says an increase is not available this cycle without suggesting how to improve their chances.
