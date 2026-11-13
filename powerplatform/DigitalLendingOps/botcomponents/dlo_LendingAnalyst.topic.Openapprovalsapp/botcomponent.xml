@@ -1,0 +1,10 @@
+<botcomponent schemaname="dlo_LendingAnalyst.topic.Openapprovalsapp">
+  <componenttype>9</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>Open approvals app</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

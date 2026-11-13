@@ -1,0 +1,15 @@
+kind: TaskDialog
+modelDisplayName: Get what-if scenarios
+modelDescription: Use to compare the effect of a different budget, step or fee on offers, capital, NPV and defaults. Results are precomputed simulated estimates for specific values only.
+outputs:
+  - propertyName: Response
+
+action:
+  kind: InvokeConnectorTaskAction
+  connectionReference: dlo_LendingAnalyst.shared_lending-20analyst-5fcd8516884fb67f13-5f9e2a1a6473873124.21e597adbcba44d0abd166b0a2329240
+  connectionProperties:
+    mode: Invoker
+
+  operationId: GetScenarios
+
+outputMode: All

@@ -1,0 +1,11 @@
+<botcomponent schemaname="dlo_LendingAssistant.gpt.default">
+  <componenttype>15</componenttype>
+  <description>Helps a customer understand their next payment and how to increase their limit.</description>
+  <iscustomizable>0</iscustomizable>
+  <name>Lending Assistant</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAssistant</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

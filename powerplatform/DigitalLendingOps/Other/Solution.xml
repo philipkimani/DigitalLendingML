@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<ImportExportXml version="9.2.26103.149" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26103.149" OrganizationSchemaType="Standard" CRMServerServiceabilityVersion="9.2.26103.00149">
+<ImportExportXml version="9.2.26104.134" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26104.134" OrganizationSchemaType="Standard" CRMServerServiceabilityVersion="9.2.26111.00134">
   <SolutionManifest>
     <UniqueName>DigitalLendingOps</UniqueName>
     <LocalizedNames>
@@ -80,7 +80,9 @@
     <RootComponents>
       <RootComponent type="29" id="{81867e34-1ed8-f111-84ea-002248db542c}" behavior="0" />
       <RootComponent type="300" schemaName="dlo_lendingapprovals_ef919" behavior="0" />
+      <RootComponent type="372" id="{e485e4b3-0510-4b7d-ad19-372be1004ec3}" schemaName="dlo_lending-20analyst" behavior="0" />
       <RootComponent type="372" id="{78f055e8-3a9e-4dd8-9695-2b9add9fefbd}" schemaName="dlo_lending-20approvals" behavior="0" />
+      <RootComponent type="372" id="{501dec86-8596-44ab-afeb-7b217e0c3c3b}" schemaName="dlo_lending-20customer" behavior="0" />
     </RootComponents>
     <MissingDependencies />
   </SolutionManifest>

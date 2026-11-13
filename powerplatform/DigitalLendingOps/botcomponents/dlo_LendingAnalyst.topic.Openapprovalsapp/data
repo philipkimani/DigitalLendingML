@@ -1,0 +1,26 @@
+kind: AdaptiveDialog
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: Version
+    description: The parameter set's version number
+    entity: NumberPrebuiltEntity
+    shouldPromptUser: true
+
+modelDescription: Gives the link to open a parameter set in the approvals app. Use after proposing a set, or when asked to approve, reject or activate one.
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent: {}
+  actions:
+    - kind: SendActivity
+      id: sendApprovalsLink
+      activity: "I can't approve, reject or activate parameter sets. A different person does that in the Lending approvals app, and a set only affects decisions after it is activated and the next nightly run. Open set {Topic.Version}: {Env.dlo_ApprovalsAppUrl}?version={Topic.Version}"
+
+inputType:
+  properties:
+    Version:
+      displayName: Version
+      description: The parameter set's version number
+      type: Number
+
+outputType: {}

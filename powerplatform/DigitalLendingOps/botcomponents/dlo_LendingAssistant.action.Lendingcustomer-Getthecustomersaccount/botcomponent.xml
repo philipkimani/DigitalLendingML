@@ -1,0 +1,10 @@
+<botcomponent schemaname="dlo_LendingAssistant.action.Lendingcustomer-Getthecustomersaccount">
+  <componenttype>9</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>Lending customer - Get the customer's account</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAssistant</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

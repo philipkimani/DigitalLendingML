@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.05-the-profit-column-puzzle.md_Agk">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in 05-the-profit-column-puzzle.md</description>
+  <filedata mimetype="application/octet-stream">05-the-profit-column-puzzle.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>05-the-profit-column-puzzle.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

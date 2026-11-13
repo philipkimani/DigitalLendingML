@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.model_card.md_chE">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in model_card.md</description>
+  <filedata mimetype="application/octet-stream">model_card.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>model_card.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

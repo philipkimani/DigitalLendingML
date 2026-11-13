@@ -1,0 +1,11 @@
+<botcomponent schemaname="dlo_LendingAnalyst.gpt.default">
+  <componenttype>15</componenttype>
+  <description>Helps finance staff understand lending decisions, the portfolio and the model, compare scenarios, and start parameter changes.</description>
+  <iscustomizable>0</iscustomizable>
+  <name>Lending Analyst</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.09-lagrangian-backward-induction-beta-binomial.md_sd8">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in 09-lagrangian-backward-induction-beta-binomial.md</description>
+  <filedata mimetype="application/octet-stream">09-lagrangian-backward-induction-beta-binomial.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>09-lagrangian-backward-induction-beta-binomial.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

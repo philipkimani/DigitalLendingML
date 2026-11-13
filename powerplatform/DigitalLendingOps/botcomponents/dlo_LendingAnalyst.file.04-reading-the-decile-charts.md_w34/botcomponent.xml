@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.04-reading-the-decile-charts.md_w34">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in 04-reading-the-decile-charts.md</description>
+  <filedata mimetype="application/octet-stream">04-reading-the-decile-charts.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>04-reading-the-decile-charts.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

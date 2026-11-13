@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.01-the-model-step-by-step.md_H1_">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in 01-the-model-step-by-step.md</description>
+  <filedata mimetype="application/octet-stream">01-the-model-step-by-step.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>01-the-model-step-by-step.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

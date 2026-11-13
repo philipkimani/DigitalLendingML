@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.06-risk-buckets-and-bayesian-updating.md_veM">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in 06-risk-buckets-and-bayesian-updating.md</description>
+  <filedata mimetype="application/octet-stream">06-risk-buckets-and-bayesian-updating.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>06-risk-buckets-and-bayesian-updating.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>
