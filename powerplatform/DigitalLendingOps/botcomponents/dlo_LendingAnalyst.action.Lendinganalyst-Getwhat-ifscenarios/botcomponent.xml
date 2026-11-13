@@ -1,0 +1,10 @@
+<botcomponent schemaname="dlo_LendingAnalyst.action.Lendinganalyst-Getwhat-ifscenarios">
+  <componenttype>9</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>Lending analyst - Get what-if scenarios</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

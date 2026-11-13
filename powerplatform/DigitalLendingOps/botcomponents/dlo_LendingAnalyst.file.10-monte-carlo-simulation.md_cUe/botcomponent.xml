@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.10-monte-carlo-simulation.md_cUe">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in 10-monte-carlo-simulation.md</description>
+  <filedata mimetype="application/octet-stream">10-monte-carlo-simulation.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>10-monte-carlo-simulation.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

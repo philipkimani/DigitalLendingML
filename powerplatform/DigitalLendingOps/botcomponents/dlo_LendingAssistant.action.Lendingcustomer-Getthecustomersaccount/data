@@ -1,0 +1,31 @@
+kind: TaskDialog
+modelDisplayName: Get the customer's account
+modelDescription: Use for questions about the customer's next payment, due date, when they can next be reviewed for an increase, their on-time record, or whether an increase is available.
+outputs:
+  - propertyName: decision
+
+  - propertyName: eligible_from
+
+  - propertyName: message
+
+  - propertyName: new_limit
+
+  - propertyName: next_payment.amount
+
+  - propertyName: next_payment.due_at
+
+  - propertyName: next_payment.status
+
+  - propertyName: ontime_pct
+
+  - propertyName: ontime_target
+
+action:
+  kind: InvokeConnectorTaskAction
+  connectionReference: dlo_LendingAssistant.shared_lending-20customer-5fcd8516884fb67f13-5f9e2a1a6473873124.23a0ef4aef5440c6acafa68b2a0f452d
+  connectionProperties:
+    mode: Invoker
+
+  operationId: GetAccount
+
+outputMode: All

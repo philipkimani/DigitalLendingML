@@ -1,0 +1,17 @@
+kind: TaskDialog
+modelDisplayName: Propose a parameter change
+modelDescription: Creates a proposed set from the active one with a new budget, step or fee. Only call after the person has confirmed the exact change in this conversation. It does not approve or activate anything.
+outputs:
+  - propertyName: param_version
+
+  - propertyName: status
+
+action:
+  kind: InvokeConnectorTaskAction
+  connectionReference: dlo_LendingAnalyst.shared_lending-20analyst-5fcd8516884fb67f13-5f9e2a1a6473873124.21e597adbcba44d0abd166b0a2329240
+  connectionProperties:
+    mode: Invoker
+
+  operationId: ProposeParameterSet
+
+outputMode: All

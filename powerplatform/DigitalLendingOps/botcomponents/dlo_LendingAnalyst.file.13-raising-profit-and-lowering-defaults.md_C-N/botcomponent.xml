@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.13-raising-profit-and-lowering-defaults.md_C-N">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in 13-raising-profit-and-lowering-defaults.md</description>
+  <filedata mimetype="application/octet-stream">13-raising-profit-and-lowering-defaults.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>13-raising-profit-and-lowering-defaults.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

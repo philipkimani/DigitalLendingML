@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Connector xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <connectorid>e485e4b3-0510-4b7d-ad19-372be1004ec3</connectorid>
+  <description>Internal agent's tools: read decisions, the portfolio and what-if scenarios, and propose changes. It has no approve, reject or activate action. Every call runs as the signed-in person.</description>
+  <displayname>Lending analyst</displayname>
+  <iconbrandcolor>#007ee5</iconbrandcolor>
+  <name>dlo_lending-20analyst</name>
+  <connectortype>1</connectortype>
+  <openapidefinition>/Connector/dlo_lending-20analyst_openapidefinition.json</openapidefinition>
+  <connectionparameters>/Connector/dlo_lending-20analyst_connectionparameters.json</connectionparameters>
+  <policytemplateinstances>/Connector/dlo_lending-20analyst_policytemplateinstances.json</policytemplateinstances>
+  <iconblob>/Connector/dlo_lending-20analyst_iconblob.Png</iconblob>
+</Connector>

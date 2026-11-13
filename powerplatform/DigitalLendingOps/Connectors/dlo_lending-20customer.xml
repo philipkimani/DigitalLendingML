@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Connector xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <connectorid>501dec86-8596-44ab-afeb-7b217e0c3c3b</connectorid>
+  <description>Customer agent's only tool: one customer's account, in their own terms.</description>
+  <displayname>Lending customer</displayname>
+  <iconbrandcolor>#007ee5</iconbrandcolor>
+  <name>dlo_lending-20customer</name>
+  <connectortype>1</connectortype>
+  <openapidefinition>/Connector/dlo_lending-20customer_openapidefinition.json</openapidefinition>
+  <connectionparameters>/Connector/dlo_lending-20customer_connectionparameters.json</connectionparameters>
+  <policytemplateinstances>/Connector/dlo_lending-20customer_policytemplateinstances.json</policytemplateinstances>
+  <iconblob>/Connector/dlo_lending-20customer_iconblob.Png</iconblob>
+</Connector>

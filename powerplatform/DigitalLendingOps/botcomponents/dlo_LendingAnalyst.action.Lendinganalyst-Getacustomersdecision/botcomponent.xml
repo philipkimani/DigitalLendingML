@@ -1,0 +1,10 @@
+<botcomponent schemaname="dlo_LendingAnalyst.action.Lendinganalyst-Getacustomersdecision">
+  <componenttype>9</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>Lending analyst - Get a customer's decision</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

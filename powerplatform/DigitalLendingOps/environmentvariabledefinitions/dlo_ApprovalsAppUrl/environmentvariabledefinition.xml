@@ -1,0 +1,13 @@
+<environmentvariabledefinition schemaname="dlo_ApprovalsAppUrl">
+  <description default="Play link of the Lending approvals app in this environment; the analyst agent appends ?version=&lt;n&gt;.">
+    <label description="Play link of the Lending approvals app in this environment; the analyst agent appends ?version=&lt;n&gt;." languagecode="1033" />
+  </description>
+  <displayname default="Approvals App Url">
+    <label description="Approvals App Url" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

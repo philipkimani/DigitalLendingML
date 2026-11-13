@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.08-the-optimisation-model.md_svJ">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in 08-the-optimisation-model.md</description>
+  <filedata mimetype="application/octet-stream">08-the-optimisation-model.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>08-the-optimisation-model.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

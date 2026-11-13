@@ -1,0 +1,15 @@
+kind: TaskDialog
+modelDisplayName: Get the portfolio summary
+modelDescription: Use for offers and holds, reasons, capital used, budget, capital left, the capital price, and current parameter values. Capital used is a simulated estimate.
+outputs:
+  - propertyName: Response
+
+action:
+  kind: InvokeConnectorTaskAction
+  connectionReference: dlo_LendingAnalyst.shared_lending-20analyst-5fcd8516884fb67f13-5f9e2a1a6473873124.21e597adbcba44d0abd166b0a2329240
+  connectionProperties:
+    mode: Invoker
+
+  operationId: GetPortfolio
+
+outputMode: All

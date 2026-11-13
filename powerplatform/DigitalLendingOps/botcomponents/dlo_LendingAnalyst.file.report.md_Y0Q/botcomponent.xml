@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.report.md_Y0Q">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in report.md</description>
+  <filedata mimetype="application/octet-stream">report.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>report.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

@@ -1,5 +1,5 @@
 <environmentvariabledefinition schemaname="dlo_ApiBaseUrl">
-  <defaultvalue>https://ca-digitallending-dev-api.livelytree-dce06fb3.southafricanorth.azurecontainerapps.io</defaultvalue>
+  <defaultvalue>https://apim-digitallending-dev-begdww.azure-api.net</defaultvalue>
   <displayname default="Api Base Url">
     <label description="Api Base Url" languagecode="1033" />
   </displayname>

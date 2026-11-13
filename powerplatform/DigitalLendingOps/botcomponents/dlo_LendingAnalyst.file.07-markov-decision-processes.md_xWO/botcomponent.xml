@@ -1,0 +1,12 @@
+<botcomponent schemaname="dlo_LendingAnalyst.file.07-markov-decision-processes.md_xWO">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in 07-markov-decision-processes.md</description>
+  <filedata mimetype="application/octet-stream">07-markov-decision-processes.md</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>07-markov-decision-processes.md</name>
+  <parentbotid>
+    <schemaname>dlo_LendingAnalyst</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

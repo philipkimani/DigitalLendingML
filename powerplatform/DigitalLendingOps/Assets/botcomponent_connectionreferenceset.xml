@@ -1,0 +1,20 @@
+<botcomponent_connectionreferenceset>
+  <botcomponent_connectionreference botcomponentid.schemaname="dlo_LendingAnalyst.action.Lendinganalyst-Getacustomersdecision" connectionreferenceid.connectionreferencelogicalname="dlo_LendingAnalyst.shared_lending-20analyst-5fcd8516884fb67f13-5f9e2a1a6473873124.21e597adbcba44d0abd166b0a2329240">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+  <botcomponent_connectionreference botcomponentid.schemaname="dlo_LendingAnalyst.action.Lendinganalyst-Gettheportfoliosummary" connectionreferenceid.connectionreferencelogicalname="dlo_LendingAnalyst.shared_lending-20analyst-5fcd8516884fb67f13-5f9e2a1a6473873124.21e597adbcba44d0abd166b0a2329240">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+  <botcomponent_connectionreference botcomponentid.schemaname="dlo_LendingAnalyst.action.Lendinganalyst-Getwhat-ifscenarios" connectionreferenceid.connectionreferencelogicalname="dlo_LendingAnalyst.shared_lending-20analyst-5fcd8516884fb67f13-5f9e2a1a6473873124.21e597adbcba44d0abd166b0a2329240">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+  <botcomponent_connectionreference botcomponentid.schemaname="dlo_LendingAnalyst.action.Lendinganalyst-Listparametersets" connectionreferenceid.connectionreferencelogicalname="dlo_LendingAnalyst.shared_lending-20analyst-5fcd8516884fb67f13-5f9e2a1a6473873124.21e597adbcba44d0abd166b0a2329240">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+  <botcomponent_connectionreference botcomponentid.schemaname="dlo_LendingAnalyst.action.Lendinganalyst-Proposeaparameterchange" connectionreferenceid.connectionreferencelogicalname="dlo_LendingAnalyst.shared_lending-20analyst-5fcd8516884fb67f13-5f9e2a1a6473873124.21e597adbcba44d0abd166b0a2329240">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+  <botcomponent_connectionreference botcomponentid.schemaname="dlo_LendingAssistant.action.Lendingcustomer-Getthecustomersaccount" connectionreferenceid.connectionreferencelogicalname="dlo_LendingAssistant.shared_lending-20customer-5fcd8516884fb67f13-5f9e2a1a6473873124.23a0ef4aef5440c6acafa68b2a0f452d">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+</botcomponent_connectionreferenceset>
