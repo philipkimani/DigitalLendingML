@@ -210,7 +210,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
         targetPort: 8000 // the API runs as a non-root user, so it listens above 1024
         transport: 'auto'
         // No IP allow-list: every endpoint except /healthz needs an Entra token with an app role (api/main.py,
-        // infra/entra.bicep). Rate limiting and a gateway come with APIM.
+        // infra/entra.bicep). Callers use the APIM gateway (infra/apim.bicep); this URL stays reachable directly.
         ipSecurityRestrictions: []
       }
       registries: [ { server: acr.properties.loginServer, identity: uami.id } ]

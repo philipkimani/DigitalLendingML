@@ -54,6 +54,7 @@ The policy offers mainly to prime customers with small and mid-sized loans; near
 - **Retrospective acceptance.** Acceptance is estimated from the year it is evaluated on; production must use the previous period.
 - **Scale.** Solving at a fixed λ is linear and chunked. Re-finding λ by bisection over millions of customers is slow (hours on one core); the planned cadence is a nightly solve at an approved λ with periodic recalibration.
 - **Fairness.** Inputs are repayment behaviour and loan size only, with no personal characteristics. Outcomes should still be checked across customer groups once real data allows.
+- **The customer agent is a demonstration.** The customer id is typed in chat, so anyone in the chat could read any id. It must not serve real customers until customer sign-in and an own-record endpoint exist.
 
 ## Governance
 
